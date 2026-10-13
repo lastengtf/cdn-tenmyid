@@ -12,13 +12,19 @@ compatibility_date = "2024-09-23"
 directory = "./public"
 binding = "ASSETS"
 
-# Cloudflare KV Namespace Binding
-# Dashboard: Settings > Variables and Secrets > KV namespace bindings (atau Settings > Bindings)
-# Variable Name: CDN_KV
-[[kv_namespaces]]
-binding = "CDN_KV"
-id = "CDN_KV_NAMESPACE_ID" # Ganti dengan ID KV Namespace Anda jika deploy via CLI
-
 # Environment Variables
 [vars]
-ADMIN_API_KEY = "ten-cdn-secret-key" # Ganti dengan API key rahasia Anda
+ADMIN_API_KEY = "ten-cdn-secret-key"
+
+# ==============================================================================
+# Cloudflare KV Namespace Binding
+# Opsi 1 (Direkomendasikan): Hubungkan lewat Dashboard Cloudflare:
+#         Settings > Bindings (atau Variables and Secrets) > KV Namespace
+#         - Variable name: CDN_KV
+#         - Pilih KV Namespace yang sudah Anda buat.
+#
+# Opsi 2: Buka komentar di bawah ini dan ganti ID dengan ID asli KV Anda (32 karakter hex):
+# [[kv_namespaces]]
+# binding = "CDN_KV"
+# id = "MASUKKAN_KV_ID_ASLI_DISINI"
+# ==============================================================================
