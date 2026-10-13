@@ -1,6 +1,6 @@
 # MASTER PLAN: PENGEMBANGAN PLATFORM CDN TEN (`cdn.ten.my.id`)
 
-Dokumen ini merupakan panduan strategis dan teknis menyeluruh (Master Plan) untuk pembangunan platform **CDN TEN** yang beralamat di **`cdn.ten.my.id`**. Platform ini berfungsi sebagai infrastruktur penyedia hosting aset digital (gambar, video, kode script JS, stylesheet CSS, font, dokumen publik, dll.) yang terintegrasi dengan GitHub dan dideploy melalui Cloudflare.
+Dokumen ini merupakan panduan strategis dan teknis menyeluruh (Master Plan) untuk platform **CDN TEN** pada domain **`cdn.ten.my.id`**. Platform ini berfungsi sebagai infrastruktur penyedia hosting dan penyimpanan aset digital (gambar, video, script JS, stylesheet CSS, font, dokumen pribadi, dll.) yang terintegrasi dengan GitHub dan dideploy melalui Cloudflare.
 
 ---
 
@@ -10,98 +10,51 @@ Dokumen ini merupakan panduan strategis dan teknis menyeluruh (Master Plan) untu
 | :--- | :--- |
 | **Nama Platform** | CDN TEN |
 | **Domain Utama** | `cdn.ten.my.id` |
-| **Fungsi Utama** | Content Delivery Network (CDN) untuk hosting aset statis & media publik |
-| **Jenis Aset** | Gambar (SVG, WebP, PNG, JPG), Video/Audio, Stylesheet (CSS), Script (JS), Web Fonts (WOFF2), Dokumen publik |
-| **Target Pengguna** | Ekosistem internal web TEN-MY-ID, aplikasi web mitra, serta publik |
-| **Platform Hosting** | Cloudflare Pages / Cloudflare Edge Network |
-| **Database** | Cloudflare Workers KV (`CDN_KV`) |
-| **Serverless API Engine** | Cloudflare Pages Functions (`functions/api/*`, `functions/raw/*`, `functions/s/*`) |
-| **Version Control & CI/CD** | GitHub: `https://github.com/lastengtf/cdn-tenmyid` -> Auto-deploy via Cloudflare Pages |
+| **Fungsi Utama** | Personal Content Delivery Network (CDN) & Asset Hosting |
+| **Jenis Aset** | Gambar (PNG, JPG, WebP, SVG), Video (MP4, WebM), Script (JS), CSS, Font, Dokumen (PDF, ZIP, dll.) |
+| **Target Pengguna** | Personal / Digital Pribadi |
+| **Platform Hosting** | Cloudflare Workers with Static Assets (`main = "src/index.js"`) |
+| **Database** | Cloudflare Workers KV (`CDN_KV`, ID: `dce4b6259909484888bf22eb63dcf826`) |
+| **Autentikasi** | Login Email & Password sesuai environment variables Cloudflare (`ADMIN_EMAIL` & `ADMIN_PASSWORD`) |
+| **Pola URL Aset** | URL Acak Unik (`cdn.ten.my.id/<random_slug>`) & Opsional Custom Path (`cdn.ten.my.id/<custom_path>`) |
+| **Version Control** | GitHub: `https://github.com/lastengtf/cdn-tenmyid` |
 
 ---
 
-## 2. Arsitektur Cloudflare KV Database
-
-Platform CDN TEN menggunakan **Cloudflare Workers KV** sebagai database terdistribusi edge untuk menyimpan seluruh data katalog dan berkas aset:
+## 2. Arsitektur Cloudflare KV Database & Routing
 
 ### 2.1. Skema Penyimpanan KV (Key-Value Schema):
 1. **Metadata Aset (`asset:meta:<id>`)**:
    - Format: JSON Object
-   - Field: `id`, `name`, `slug`, `category`, `type`, `mimeType`, `size`, `path`, `desc`, `previewable`, `previewType`, `source`, `createdAt`
-2. **Konten Berkas Teks (`asset:content:txt:<id>`)**:
-   - Menyimpan kode teks mentah (CSS, JavaScript, SVG, JSON, HTML).
-3. **Konten Berkas Biner (`asset:content:b64:<id>`)**:
-   - Menyimpan berkas biner/gambar terenkode Base64 (PNG, WebP, Font WOFF2, dll.).
-4. **Pemetaan Slug URL (`slug:<slug>`)**:
-   - Memetakan path slug (misal: `css/button.css`) ke `id` aset di KV.
-5. **Shortlink & Hit Counter (`shortlink:<short>`, `stats:hits:<id>`)**:
-   - Menyimpan URL tujuan redirect dan metrik statistik akses.
+   - Field: `id`, `name`, `category`, `randomSlug`, `customPath`, `fileName`, `extension`, `mimeType`, `sizeBytes`, `sizeFormatted`, `createdAt`, `updatedAt`
+2. **Konten Berkas (`asset:file:<id>`)**:
+   - Menyimpan binary buffer (ArrayBuffer) atau konten teks berkas secara langsung di Cloudflare KV.
+3. **Routing Karakter Acak (`slug:<random_slug>`)**:
+   - Menghubungkan path acak unik (misal: `x8k2zp`) langsung ke ID aset di KV.
+   - Juga dipetakan ke `slug:<random_slug>.<ext>` untuk fleksibilitas pemanggilan.
+4. **Routing Custom Path (`slug:<custom_path>`)**:
+   - Menghubungkan path kustom yang ditentukan pengguna (misal: `brand/logo.svg` atau `css/main.css`) ke ID aset di KV.
+5. **Sesi Pengguna (`session:<token>`)**:
+   - Menyimpan token autentikasi sesi pengelola setelah login berhasil.
 
-### 2.2. Endpoint Cloudflare Pages Functions:
-- **`GET /api/assets`**: Mengambil daftar seluruh aset dari KV untuk katalog portal interaktif (dengan fallback ke aset bawaan jika KV belum diisi).
-- **`POST /api/assets`**: Menyimpan aset baru (metadata + konten teks/file) ke dalam KV (diamankan dengan API Key).
+### 2.2. Endpoint Serverless Worker (`src/index.js`):
+- **`POST /api/auth/login`**: Memverifikasi email & password terhadap environment variables Cloudflare.
+- **`GET /api/auth/me`**: Memeriksa status sesi aktif.
+- **`POST /api/auth/logout`**: Mengakhiri sesi login.
+- **`GET /api/assets`**: Mengambil daftar seluruh aset dari KV untuk dashboard admin.
+- **`POST /api/assets`**: Mengunggah berkas baru atau kode langsung ke KV (otomatis membuat random slug unik).
 - **`GET /api/assets/:id`**: Mengambil detail metadata 1 aset.
-- **`DELETE /api/assets/:id`**: Menghapus aset dari KV (diamankan dengan API Key).
-- **`GET /raw/*`**: Menyajikan berkas mentah langsung dari KV dengan header `Content-Type` yang tepat, `Access-Control-Allow-Origin: *`, dan caching edge.
-- **`GET /s/:short`**: Layanan tautan pendek dan auto-redirect.
+- **`PUT /api/assets/:id`**: Memperbarui nama, kategori, atau custom path aset di KV.
+- **`DELETE /api/assets/:id`**: Menghapus file dan seluruh routing slug dari KV.
+- **`GET /:slug`**: Menyajikan berkas mentah langsung dari KV dengan header `Content-Type`, `Access-Control-Allow-Origin: *`, `Cache-Control`, dan HTTP Range Requests.
 
 ---
 
-## 6. Roadmap & Tahapan Implementasi
+## 3. Status Milestone Implementasi
 
-Rencana implementasi dibagi menjadi 6 tahap terstruktur:
-
-### Tahap 1: Persiapan & Master Plan
-- [x] Analisis kebutuhan dari `instruksi.md`.
-- [x] Pembuatan dokumen panduan teknis `plan-master.md`.
-- [x] Penentuan repositori tujuan: `https://github.com/lastengtf/cdn-tenmyid`.
-
-### Tahap 2: Pembentukan Struktur Fondasi & File Konfigurasi
-- [x] Membuat direktori `public/` dengan subfolder `assets/`, `portal/`, `v1/`.
-- [x] Membuat file konfigurasi Cloudflare: `public/_headers` dan `public/_redirects`.
-- [x] Menyiapkan `.gitignore` dan `README.md` komprehensif.
-
-### Tahap 3: Pembuatan Antarmuka Portal CDN (`public/index.html` dkk.)
-- [x] Menyusun struktur semantik HTML di `public/index.html`.
-- [x] Mendesain gaya visual premium di `public/portal/css/portal.css` (tema gelap modern, palet warna elegan, responsif mobile/desktop).
-- [x] Mengembangkan script interaktif di `public/portal/js/portal.js` (search filter, copy snippet modal, preview drawer).
-
-### Tahap 4: Inisiasi Aset Sampel & Library Dasar
-- [x] Menambahkan aset logo/branding TEN resmi (format SVG/PNG).
-- [x] Menambahkan berkas CSS dasar `ten-core.css` untuk utilitas umum.
-- [x] Menambahkan berkas JavaScript utilitas `ten-utils.js`.
-- [x] Menyiapkan direktori aset gambar, font, dan media dengan file `.gitkeep`.
-
-### Tahap 5: Verifikasi Lokal & Uji Fungsionalitas
-- [x] Memeriksa validitas kode HTML, CSS, dan JS.
-- [x] Memastikan fitur copy snippet menghasilkan URL yang tepat sesuai format `cdn.ten.my.id`.
-
-### Tahap 6: Deployment ke GitHub & Konfigurasi Cloudflare
-- [x] Inisialisasi Git dan commit seluruh file proyek.
-- [x] Menghubungkan remote repository `https://github.com/lastengtf/cdn-tenmyid`.
-- [x] Push ke branch `main` GitHub repository (Selesai).
-- [ ] Hubungkan repositori ke **Cloudflare Pages** (Build output: `public`).
-- [ ] Pasang custom domain `cdn.ten.my.id`.
-
----
-
-## 7. Standar Operasional Prosedur (SOP) Penambahan Aset Baru
-
-Untuk memastikan repositori tetap bersih dan rapi di masa mendatang, seluruh aset baru wajib mengikuti aturan berikut:
-
-1. **Konvensi Penamaan File**:
-   - Selalu gunakan huruf kecil (*lowercase*) dan tanda hubung (*kebab-case*).
-   - Contoh yang benar: `banner-hero-2026.webp`, `logo-ten-white.svg`, `button-styles.css`.
-   - Hindari spasi, simbol aneh, dan huruf kapital.
-2. **Format & Optimasi File**:
-   - **Gambar**: Utamakan format WebP atau SVG vektor. Kompresi gambar raster sebelum di-push (target ukuran < 300 KB untuk gambar umum).
-   - **Video**: Utamakan format MP4/WebM terkompresi H.264/AV1. Untuk video berukuran > 25MB, disarankan menggunakan Cloudflare Stream atau Cloudflare R2 terpisah.
-   - **Font**: Gunakan format WOFF2 (lebih hemat bandwidth dibanding TTF/OTF).
-3. **Versioning Aset Krusial**:
-   - Bila melakukan update besar pada file script atau CSS yang sudah digunakan di banyak website, buat file baru dengan nomor versi (misal: `ten-core-v2.css` atau letakkan di `v1/css/`) untuk mencegah efek samping *breaking changes* di situs pengguna.
-
----
-
-## 8. Kesimpulan & Langkah Selanjutnya
-
-Master Plan ini siap dieksekusi secara bertahap mulai dari **Tahap 2** (pembuatan struktur file & konfigurasi Cloudflare) hingga **Tahap 4** (UI Portal & Aset Awal). Setelah seluruh berkas siap, sistem dapat langsung di-push ke GitHub dan dideploy ke Cloudflare untuk domain `cdn.ten.my.id`.
+- [x] **Analisis Persyaratan**: Mempelajari `instruksi.md` (Domain `cdn.ten.my.id`, binding KV `dce4b6259909484888bf22eb63dcf826`, login email & password, slug acak & custom path, UI sederhana).
+- [x] **Konfigurasi Cloudflare & KV**: Update `wrangler.toml` dengan binding `CDN_KV` ID asli dan variabel autentikasi.
+- [x] **Backend Cloudflare Worker (`src/index.js`)**: Implementasi engine CDN, autentikasi session, manajemen aset, dan serving file KV dengan CORS & streaming.
+- [x] **Frontend Portal Minimalis (`public/index.html`, `portal.css`, `portal.js`)**: Antarmuka login dan dashboard admin responsif tanpa dekorasi berlebih, fokus pada fungsionalitas.
+- [x] **Fitur Salin & Integrasi**: 1-klik copy URL acak, copy custom path, dan copy HTML embed tags (`<img>`, `<script>`, `<link>`, `<video>`).
+- [x] **Dokumentasi & Git Sync**: Sinkronisasi seluruh perubahan ke GitHub `https://github.com/lastengtf/cdn-tenmyid`.

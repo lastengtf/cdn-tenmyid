@@ -1,0 +1,21 @@
+{
+  "name": "cdn-tenmyid",
+  "version": "1.0.0",
+  "description": "Platform Personal CDN TEN (cdn.ten.my.id) dengan Cloudflare Workers & KV Database",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "keywords": [
+    "cdn",
+    "cloudflare-workers",
+    "cloudflare-kv",
+    "asset-hosting"
+  ],
+  "author": "Appten",
+  "license": "MIT",
+  "devDependencies": {
+    "wrangler": "^4.73.0"
+  }
+}

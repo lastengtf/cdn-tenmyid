@@ -1,687 +1,745 @@
 /**
- * CDN TEN - Portal Interactive Controller with PIN 1010 Lock & Cloudflare KV
+ * CDN TEN - Client Application Controller
  * Domain: cdn.ten.my.id
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-  const MASTER_PIN = '1010';
-  let enteredPin = '';
+  // Base configuration
+  const CDN_DOMAIN = 'cdn.ten.my.id';
+  const BASE_URL = window.location.origin;
 
-  // Default Seed Assets (Fallback if KV not yet populated)
-  let assets = [
-    {
-      id: 'logo-light',
-      name: 'Logo TEN (Light Mode)',
-      category: 'brand',
-      type: 'svg',
-      size: '1.4 KB',
-      path: '/assets/brand/logo-ten.svg',
-      desc: 'Logo resmi TEN-MY-ID untuk latar belakang terang / putih.',
-      previewable: true,
-      previewType: 'image',
-      source: 'static'
-    },
-    {
-      id: 'logo-dark',
-      name: 'Logo TEN (Dark Mode)',
-      category: 'brand',
-      type: 'svg',
-      size: '1.5 KB',
-      path: '/assets/brand/logo-ten-dark.svg',
-      desc: 'Logo resmi TEN-MY-ID untuk latar belakang gelap / malam.',
-      previewable: true,
-      previewType: 'image',
-      source: 'static'
-    },
-    {
-      id: 'favicon-svg',
-      name: 'Favicon Icon Vektor',
-      category: 'brand',
-      type: 'svg',
-      size: '560 B',
-      path: '/favicon.svg',
-      desc: 'Ikon kotak favicon TEN resolusi tajam berbasis SVG.',
-      previewable: true,
-      previewType: 'image',
-      source: 'static'
-    },
-    {
-      id: 'core-css',
-      name: 'TEN Core CSS (Latest)',
-      category: 'css',
-      type: 'css',
-      size: '4.8 KB',
-      path: '/assets/css/ten-core.css',
-      desc: 'Shared utility styling, reset modern, buttons, dan glassmorphism card.',
-      previewable: true,
-      previewType: 'code',
-      source: 'static'
-    },
-    {
-      id: 'core-css-v1',
-      name: 'TEN Core CSS v1.0.0 (Immutable)',
-      category: 'css',
-      type: 'css',
-      size: '4.8 KB',
-      path: '/v1/css/ten-core.css',
-      desc: 'Versi tetap immutable v1 untuk kompatibilitas jangka panjang tanpa cache buster.',
-      previewable: true,
-      previewType: 'code',
-      source: 'static'
-    },
-    {
-      id: 'utils-js',
-      name: 'TEN JavaScript Utilities',
-      category: 'js',
-      type: 'js',
-      size: '3.2 KB',
-      path: '/assets/js/ten-utils.js',
-      desc: 'Library utility ringan: copy to clipboard, toast alert, format bytes, CDN URL resolver.',
-      previewable: true,
-      previewType: 'code',
-      source: 'static'
-    },
-    {
-      id: 'utils-js-v1',
-      name: 'TEN JS Utils v1.0.0 (Immutable)',
-      category: 'js',
-      type: 'js',
-      size: '3.2 KB',
-      path: '/v1/js/ten-utils.js',
-      desc: 'Versi tetap immutable v1 untuk script JavaScript eksternal.',
-      previewable: true,
-      previewType: 'code',
-      source: 'static'
-    }
-  ];
+  // State
+  let state = {
+    token: localStorage.getItem('cdn_token') || '',
+    email: '',
+    assets: [],
+    filterCategory: 'ALL',
+    searchQuery: '',
+    selectedFile: null,
+    uploadMode: 'file' // 'file' | 'code'
+  };
 
-  // DOM Elements - PIN Lock
-  const lockScreen = document.getElementById('lock-screen');
-  const lockCard = document.getElementById('lock-card');
-  const pinErrorMsg = document.getElementById('pin-error-msg');
-  const pinDots = [
-    document.getElementById('dot-0'),
-    document.getElementById('dot-1'),
-    document.getElementById('dot-2'),
-    document.getElementById('dot-3')
-  ];
-  const pinKeyBtns = document.querySelectorAll('.pin-key-btn[data-key]');
-  const pinBtnClear = document.getElementById('pin-btn-clear');
-  const pinBtnBackspace = document.getElementById('pin-btn-backspace');
-  const btnLockSession = document.getElementById('btn-lock-session');
+  // Elements - Views
+  const viewLogin = document.getElementById('view-login');
+  const viewAdmin = document.getElementById('view-admin');
 
-  // DOM Elements - Main Portal
-  const assetsContainer = document.getElementById('assets-grid');
-  const searchInput = document.getElementById('search-input');
-  const filterChips = document.querySelectorAll('.filter-chip');
-  
-  // Snippet Modal
-  const modal = document.getElementById('snippet-modal');
-  const modalCloseBtn = document.getElementById('modal-close-btn');
-  const modalTitle = document.getElementById('modal-title');
-  const modalPreviewBox = document.getElementById('modal-preview-box');
-  const snippetCode = document.getElementById('snippet-code');
-  const snippetTabs = document.querySelectorAll('.snippet-tab');
-  const copyModalBtn = document.getElementById('copy-modal-btn');
-  const latencyBadge = document.getElementById('edge-latency');
+  // Elements - Auth
+  const formLogin = document.getElementById('form-login');
+  const inputEmail = document.getElementById('login-email');
+  const inputPassword = document.getElementById('login-password');
+  const loginError = document.getElementById('login-error');
+  const btnSubmitLogin = document.getElementById('btn-submit-login');
+  const btnTogglePassword = document.getElementById('btn-toggle-password');
+  const btnLogout = document.getElementById('btn-logout');
+  const userEmailDisplay = document.getElementById('user-email-display');
 
-  // Upload Modal
-  const uploadModal = document.getElementById('upload-modal');
-  const btnOpenUpload = document.getElementById('btn-open-upload-modal');
-  const uploadCloseBtn = document.getElementById('upload-close-btn');
-  const uploadCancelBtn = document.getElementById('upload-cancel-btn');
-  const uploadForm = document.getElementById('upload-form');
-  const radioTypeText = document.getElementById('radio-type-text');
-  const radioTypeFile = document.getElementById('radio-type-file');
-  const groupContentText = document.getElementById('group-content-text');
-  const groupContentFile = document.getElementById('group-content-file');
+  // Elements - Admin Dashboard
+  const statTotalAssets = document.getElementById('stat-total-assets');
+  const statTotalCategories = document.getElementById('stat-total-categories');
+  const statTotalSize = document.getElementById('stat-total-size');
+  const inputSearch = document.getElementById('input-search');
+  const categoryFilterList = document.getElementById('category-filter-list');
+  const assetsTableBody = document.getElementById('assets-table-body');
+  const assetsEmptyState = document.getElementById('assets-empty-state');
+  const btnOpenUpload = document.getElementById('btn-open-upload');
+
+  // Elements - Upload Modal
+  const modalUpload = document.getElementById('modal-upload');
+  const btnCloseUploadModal = document.getElementById('btn-close-upload-modal');
+  const btnCancelUpload = document.getElementById('btn-cancel-upload');
+  const tabModeFile = document.getElementById('tab-mode-file');
+  const tabModeCode = document.getElementById('tab-mode-code');
+  const sectionFileInput = document.getElementById('section-file-input');
+  const sectionCodeInput = document.getElementById('section-code-input');
+  const fileDropzone = document.getElementById('file-dropzone');
+  const inputFile = document.getElementById('input-file');
+  const dropzoneLabel = document.getElementById('dropzone-label');
+  const inputCodeContent = document.getElementById('input-code-content');
+  const formUploadAsset = document.getElementById('form-upload-asset');
   const inputAssetName = document.getElementById('input-asset-name');
-  const inputAssetSlug = document.getElementById('input-asset-slug');
+  const selectAssetCategory = document.getElementById('select-asset-category');
+  const inputRandomSlug = document.getElementById('input-random-slug');
+  const btnRefreshSlug = document.getElementById('btn-refresh-slug');
+  const inputCustomPath = document.getElementById('input-custom-path');
+  const btnSubmitUpload = document.getElementById('btn-submit-upload');
 
-  let currentCategory = 'all';
-  let searchQuery = '';
-  let activeAsset = null;
-  let activeFormat = 'url';
+  // Elements - Edit Modal
+  const modalEdit = document.getElementById('modal-edit');
+  const btnCloseEditModal = document.getElementById('btn-close-edit-modal');
+  const btnCancelEdit = document.getElementById('btn-cancel-edit');
+  const formEditAsset = document.getElementById('form-edit-asset');
+  const editAssetId = document.getElementById('edit-asset-id');
+  const editAssetName = document.getElementById('edit-asset-name');
+  const editAssetCategory = document.getElementById('edit-asset-category');
+  const editCustomPath = document.getElementById('edit-custom-path');
+  const btnSubmitEdit = document.getElementById('btn-submit-edit');
 
-  // ========================================================
-  // 1. PIN Security Lock Logic (PIN: 1010)
-  // ========================================================
+  // Elements - Preview Modal
+  const modalPreview = document.getElementById('modal-preview');
+  const btnClosePreviewModal = document.getElementById('btn-close-preview-modal');
+  const previewTitle = document.getElementById('preview-title');
+  const previewCategoryTag = document.getElementById('preview-category-tag');
+  const previewMediaContainer = document.getElementById('preview-media-container');
+  const previewRandomUrl = document.getElementById('preview-random-url');
+  const previewOpenRandom = document.getElementById('preview-open-random');
+  const previewCustomUrlGroup = document.getElementById('preview-custom-url-group');
+  const previewCustomUrl = document.getElementById('preview-custom-url');
+  const previewOpenCustom = document.getElementById('preview-open-custom');
+  const previewEmbedSnippet = document.getElementById('preview-embed-snippet');
 
-  function checkSessionAuth() {
-    const isAuth = sessionStorage.getItem('cdn_ten_pin_auth');
-    if (isAuth === MASTER_PIN) {
-      unlockScreen(false);
-    } else {
-      lockScreen.classList.remove('unlocked');
-    }
-  }
+  // Elements - Toast
+  const toast = document.getElementById('toast');
 
-  function updatePinDots() {
-    pinDots.forEach((dot, idx) => {
-      if (dot) {
-        if (idx < enteredPin.length) {
-          dot.classList.add('filled');
-        } else {
-          dot.classList.remove('filled');
-        }
-      }
-    });
-  }
+  /* =========================================================================
+     1. Inisialisasi & Pemeriksaan Autentikasi
+     ========================================================================= */
 
-  async function handlePinInput(digit) {
-    if (enteredPin.length >= 4) return;
-    enteredPin += digit;
-    updatePinDots();
-    if (pinErrorMsg) pinErrorMsg.textContent = '';
+  checkAuth();
 
-    if (enteredPin.length === 4) {
-      await verifyPin();
-    }
-  }
-
-  function handleBackspace() {
-    if (enteredPin.length > 0) {
-      enteredPin = enteredPin.slice(0, -1);
-      updatePinDots();
-      if (pinErrorMsg) pinErrorMsg.textContent = '';
-    }
-  }
-
-  function handleClearPin() {
-    enteredPin = '';
-    updatePinDots();
-    if (pinErrorMsg) pinErrorMsg.textContent = '';
-  }
-
-  async function verifyPin() {
-    let isValid = false;
-
-    // Try server verification first
+  async function checkAuth() {
     try {
-      const res = await fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin: enteredPin })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success) isValid = true;
+      const res = await apiRequest('/api/auth/me', 'GET');
+      if (res && res.authenticated) {
+        state.email = res.email || 'admin';
+        showAdminView();
+        loadAssets();
+      } else {
+        showLoginView();
       }
-    } catch {}
-
-    // Fallback client-side check
-    if (!isValid && enteredPin === MASTER_PIN) {
-      isValid = true;
-    }
-
-    if (isValid) {
-      sessionStorage.setItem('cdn_ten_pin_auth', MASTER_PIN);
-      unlockScreen(true);
-    } else {
-      // Trigger error shake
-      if (lockCard) {
-        lockCard.classList.add('shake');
-        setTimeout(() => lockCard.classList.remove('shake'), 400);
-      }
-      if (pinErrorMsg) {
-        pinErrorMsg.textContent = 'PIN Salah! Silakan gunakan PIN 1010.';
-      }
-      setTimeout(() => {
-        enteredPin = '';
-        updatePinDots();
-      }, 500);
+    } catch {
+      showLoginView();
     }
   }
 
-  function unlockScreen(showNotice = true) {
-    if (lockScreen) {
-      lockScreen.classList.add('unlocked');
-      if (showNotice) {
-        notify('Akses Terverifikasi! Selamat datang di Pengelola CDN TEN.', 'success');
-      }
-    }
+  function showLoginView() {
+    viewLogin.style.display = 'flex';
+    viewAdmin.style.display = 'none';
+    closeAllModals();
   }
 
-  function lockSession() {
-    sessionStorage.removeItem('cdn_ten_pin_auth');
-    enteredPin = '';
-    updatePinDots();
-    if (pinErrorMsg) pinErrorMsg.textContent = '';
-    if (lockScreen) {
-      lockScreen.classList.remove('unlocked');
-    }
-    notify('Sesi berhasil dikunci.', 'info');
+  function showAdminView() {
+    viewLogin.style.display = 'none';
+    viewAdmin.style.display = 'flex';
+    userEmailDisplay.textContent = state.email || 'admin';
   }
 
-  // Keypad Listeners
-  pinKeyBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const key = btn.dataset.key;
-      handlePinInput(key);
-    });
-  });
+  /* =========================================================================
+     2. Form Login & Logout
+     ========================================================================= */
 
-  if (pinBtnClear) pinBtnClear.addEventListener('click', handleClearPin);
-  if (pinBtnBackspace) pinBtnBackspace.addEventListener('click', handleBackspace);
-  if (btnLockSession) btnLockSession.addEventListener('click', lockSession);
+  if (formLogin) {
+    formLogin.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      loginError.style.display = 'none';
+      btnSubmitLogin.disabled = true;
+      btnSubmitLogin.querySelector('.btn-label').textContent = 'Memverifikasi...';
 
-  // Keyboard Event Listener for PIN input
-  document.addEventListener('keydown', (e) => {
-    if (lockScreen && !lockScreen.classList.contains('unlocked')) {
-      if (e.key >= '0' && e.key <= '9') {
-        handlePinInput(e.key);
-      } else if (e.key === 'Backspace') {
-        handleBackspace();
-      } else if (e.key === 'Escape' || e.key === 'c' || e.key === 'C') {
-        handleClearPin();
-      }
-    }
-  });
+      const email = inputEmail.value.trim();
+      const password = inputPassword.value;
 
-  // ========================================================
-  // 2. Main Portal Management & KV Logic
-  // ========================================================
-
-  async function init() {
-    checkSessionAuth();
-
-    if (latencyBadge) {
-      const t0 = performance.now();
-      fetch('/favicon.svg', { method: 'HEAD', cache: 'no-cache' })
-        .then(() => {
-          const ping = Math.round(performance.now() - t0);
-          latencyBadge.textContent = `${ping} ms (Cloudflare Edge)`;
-        })
-        .catch(() => {
-          latencyBadge.textContent = '< 20 ms (Global Anycast)';
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
         });
-    }
 
-    await fetchAssetsFromKV();
+        const data = await res.json();
+        if (res.ok && data.success) {
+          state.token = data.token;
+          state.email = data.email || email;
+          localStorage.setItem('cdn_token', data.token);
+          formLogin.reset();
+          showAdminView();
+          loadAssets();
+          showToast('Login berhasil! Selamat datang.');
+        } else {
+          showLoginError(data.error || 'Email atau password salah.');
+        }
+      } catch (err) {
+        showLoginError('Terjadi kesalahan jaringan: ' + err.message);
+      } finally {
+        btnSubmitLogin.disabled = false;
+        btnSubmitLogin.querySelector('.btn-label').textContent = 'Masuk ke Dashboard';
+      }
+    });
   }
 
-  async function fetchAssetsFromKV() {
+  if (btnTogglePassword) {
+    btnTogglePassword.addEventListener('click', () => {
+      const isPass = inputPassword.type === 'password';
+      inputPassword.type = isPass ? 'text' : 'password';
+      btnTogglePassword.textContent = isPass ? '🙈' : '👁️';
+    });
+  }
+
+  if (btnLogout) {
+    btnLogout.addEventListener('click', async () => {
+      if (confirm('Yakin ingin keluar dari dashboard CDN?')) {
+        try {
+          await apiRequest('/api/auth/logout', 'POST');
+        } catch {}
+        state.token = '';
+        state.email = '';
+        localStorage.removeItem('cdn_token');
+        showLoginView();
+        showToast('Anda telah keluar.');
+      }
+    });
+  }
+
+  function showLoginError(msg) {
+    loginError.textContent = msg;
+    loginError.style.display = 'block';
+  }
+
+  /* =========================================================================
+     3. Manajemen Aset (Fetch & Render)
+     ========================================================================= */
+
+  async function loadAssets() {
     try {
-      const res = await fetch('/api/assets');
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-          assets = json.data;
-          console.log(`[CDN TEN] Dimuat ${assets.length} aset dari database KV.`);
-        }
+      const res = await apiRequest('/api/assets', 'GET');
+      if (res && res.success) {
+        state.assets = res.data || [];
+        renderDashboard();
       }
     } catch (err) {
-      console.warn('[CDN TEN] Berjalan dengan fallback static catalog:', err);
-    } finally {
-      updateCounts();
-      renderAssets();
+      console.error('Error loading assets:', err);
     }
   }
 
-  function updateCounts() {
-    filterChips.forEach(chip => {
-      const cat = chip.dataset.category;
-      const countEl = chip.querySelector('.chip-count');
-      if (countEl) {
-        if (cat === 'all') {
-          countEl.textContent = assets.length;
-        } else {
-          const c = assets.filter(a => a.category === cat).length;
-          countEl.textContent = c;
-        }
-      }
-    });
-  }
+  function renderDashboard() {
+    // 1. Update Stats
+    statTotalAssets.textContent = state.assets.length;
+    const categoriesSet = new Set(state.assets.map(a => a.category).filter(Boolean));
+    statTotalCategories.textContent = categoriesSet.size;
 
-  function renderAssets() {
-    if (!assetsContainer) return;
+    const totalBytes = state.assets.reduce((sum, a) => sum + (a.sizeBytes || 0), 0);
+    statTotalSize.textContent = formatBytes(totalBytes);
 
-    const filtered = assets.filter(asset => {
-      const matchCat = currentCategory === 'all' || asset.category === currentCategory;
-      const matchSearch = 
-        (asset.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (asset.path || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (asset.desc || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (asset.slug || '').toLowerCase().includes(searchQuery.toLowerCase());
-      return matchCat && matchSearch;
+    // 2. Filter & Search
+    const filtered = state.assets.filter(item => {
+      const matchCat = state.filterCategory === 'ALL' || item.category === state.filterCategory;
+      if (!matchCat) return false;
+
+      if (!state.searchQuery) return true;
+      const q = state.searchQuery.toLowerCase();
+      const name = (item.name || '').toLowerCase();
+      const slug = (item.randomSlug || '').toLowerCase();
+      const custom = (item.customPath || '').toLowerCase();
+      return name.includes(q) || slug.includes(q) || custom.includes(q);
     });
 
+    // 3. Render Table
     if (filtered.length === 0) {
-      assetsContainer.innerHTML = `
-        <div class="empty-state glass-panel">
-          <p style="font-size: 1.5rem; margin-bottom: 0.5rem;">🔍 Aset Tidak Ditemukan</p>
-          <p style="color: var(--text-dim); font-size: 0.9rem;">Tidak ada file aset yang sesuai dengan kriteria "<strong>${escapeHtml(searchQuery)}</strong>"</p>
-        </div>
-      `;
+      assetsTableBody.innerHTML = '';
+      assetsEmptyState.style.display = 'flex';
       return;
     }
 
-    const host = window.location.origin.includes('localhost') || window.location.origin.includes('file://')
-      ? 'https://cdn.ten.my.id'
-      : window.location.origin;
-
-    assetsContainer.innerHTML = filtered.map(asset => {
-      const fullUrl = `${host}${asset.path}`;
-      const isKv = asset.source === 'kv' || (asset.path && asset.path.startsWith('/raw/'));
+    assetsEmptyState.style.display = 'none';
+    assetsTableBody.innerHTML = filtered.map(item => {
+      const randomUrl = `${BASE_URL}/${item.randomSlug}`;
+      const customUrl = item.customPath ? `${BASE_URL}/${item.customPath}` : '';
 
       return `
-        <div class="asset-card glass-panel" data-id="${asset.id}">
-          <div>
-            <div class="asset-header">
-              <div style="display: flex; gap: 0.4rem; align-items: center;">
-                <span class="asset-type-badge badge-${asset.category || 'code'}">
-                  ${asset.type || 'file'}
-                </span>
-                ${isKv ? '<span class="badge-kv" title="Tersimpan langsung di Cloudflare KV">KV STORE</span>' : ''}
+        <tr data-id="${item.id}">
+          <td>
+            <div class="asset-item-info">
+              <div class="asset-thumb-icon">
+                ${getAssetThumbnail(item)}
               </div>
-              <span class="asset-size">${asset.size || '-'}</span>
+              <div>
+                <div class="asset-meta-title">${escapeHtml(item.name)}</div>
+                <div class="asset-meta-filename">${escapeHtml(item.fileName || item.id)}</div>
+              </div>
             </div>
-            <h3 class="asset-name">${escapeHtml(asset.name)}</h3>
-            <p class="asset-desc">${escapeHtml(asset.desc || '')}</p>
-            <div class="asset-path-box" title="${fullUrl}">
-              <span>${asset.path}</span>
+          </td>
+          <td>
+            <span class="category-tag">${escapeHtml(item.category || 'Lainnya')}</span>
+          </td>
+          <td>
+            <div class="url-badge-group">
+              <a href="/${item.randomSlug}" target="_blank" class="url-badge-link" title="${randomUrl}">
+                /${item.randomSlug}
+              </a>
+              <button class="btn-copy-mini" onclick="copyText('${randomUrl}')" title="Salin URL Acak">Salin</button>
             </div>
-          </div>
-          <div class="asset-actions">
-            <button class="btn-snippet" onclick="window.openSnippetModal('${asset.id}')">
-              <span>📋 Snippet</span>
-            </button>
-            <button class="btn-copy-direct" title="Salin Tautan Langsung" onclick="window.copyDirectUrl('${fullUrl}')">
-              <span>Salin Link</span>
-            </button>
-            ${isKv ? `
-              <button class="btn-delete-asset" title="Hapus dari KV" onclick="window.deleteAssetFromKV('${asset.id}', '${escapeHtml(asset.name)}')">
-                <span>🗑️</span>
-              </button>
-            ` : ''}
-          </div>
-        </div>
+          </td>
+          <td>
+            ${item.customPath ? `
+              <div class="url-badge-group">
+                <a href="/${item.customPath}" target="_blank" class="url-badge-link" title="${customUrl}">
+                  /${escapeHtml(item.customPath)}
+                </a>
+                <button class="btn-copy-mini" onclick="copyText('${customUrl}')" title="Salin Custom Path">Salin</button>
+              </div>
+            ` : '<span style="color: var(--text-dim); font-size: 11px;">-</span>'}
+          </td>
+          <td style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);">
+            ${item.sizeFormatted || formatBytes(item.sizeBytes || 0)}
+          </td>
+          <td style="font-size: 11px; color: var(--text-dim);">
+            ${formatDate(item.createdAt)}
+          </td>
+          <td class="text-right">
+            <div class="row-actions">
+              <button class="btn btn-secondary btn-sm" onclick="openPreviewModal('${item.id}')" title="Lihat Preview">👁️</button>
+              <button class="btn btn-secondary btn-sm" onclick="openEditModal('${item.id}')" title="Ubah Metadata">✏️</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteAsset('${item.id}', '${escapeHtml(item.name)}')" title="Hapus Aset">🗑️</button>
+            </div>
+          </td>
+        </tr>
       `;
     }).join('');
   }
 
-  // Delete Asset from KV
-  window.deleteAssetFromKV = async function(assetId, assetName) {
-    if (!confirm(`Apakah Anda yakin ingin menghapus aset "${assetName}" dari Cloudflare KV?`)) {
+  function getAssetThumbnail(item) {
+    const isImage = (item.mimeType || '').startsWith('image/') || ['svg', 'png', 'jpg', 'jpeg', 'webp', 'gif'].includes(item.extension);
+    if (isImage) {
+      return `<img src="/${item.randomSlug}" alt="" loading="lazy">`;
+    }
+    if ((item.mimeType || '').startsWith('video/')) return '🎬';
+    if (item.category === 'CSS' || item.extension === 'css') return '🎨';
+    if (item.category === 'Script' || ['js', 'mjs', 'ts'].includes(item.extension)) return '⚡';
+    if (item.extension === 'pdf') return '📄';
+    if (['zip', 'gz', 'tar'].includes(item.extension)) return '📦';
+    return '📄';
+  }
+
+  // Filter Category Pills
+  if (categoryFilterList) {
+    categoryFilterList.addEventListener('click', (e) => {
+      const btn = e.target.closest('.cat-pill');
+      if (!btn) return;
+
+      categoryFilterList.querySelectorAll('.cat-pill').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      state.filterCategory = btn.getAttribute('data-category') || 'ALL';
+      renderDashboard();
+    });
+  }
+
+  // Search Input
+  if (inputSearch) {
+    inputSearch.addEventListener('input', (e) => {
+      state.searchQuery = e.target.value.trim();
+      renderDashboard();
+    });
+  }
+
+  /* =========================================================================
+     4. Upload Modal & Actions
+     ========================================================================= */
+
+  if (btnOpenUpload) {
+    btnOpenUpload.addEventListener('click', () => openUploadModal());
+  }
+
+  document.querySelectorAll('.btn-open-upload-trigger').forEach(b => {
+    b.addEventListener('click', () => openUploadModal());
+  });
+
+  function openUploadModal() {
+    formUploadAsset.reset();
+    state.selectedFile = null;
+    dropzoneLabel.textContent = 'Pilih file atau seret file ke sini';
+    setUploadMode('file');
+    inputRandomSlug.value = generateRandomSlug();
+    modalUpload.style.display = 'flex';
+  }
+
+  function setUploadMode(mode) {
+    state.uploadMode = mode;
+    if (mode === 'file') {
+      tabModeFile.classList.add('active');
+      tabModeCode.classList.remove('active');
+      sectionFileInput.style.display = 'block';
+      sectionCodeInput.style.display = 'none';
+    } else {
+      tabModeFile.classList.remove('active');
+      tabModeCode.classList.add('active');
+      sectionFileInput.style.display = 'none';
+      sectionCodeInput.style.display = 'block';
+      selectAssetCategory.value = 'Script';
+    }
+  }
+
+  if (tabModeFile) tabModeFile.addEventListener('click', () => setUploadMode('file'));
+  if (tabModeCode) tabModeCode.addEventListener('click', () => setUploadMode('code'));
+
+  if (btnCloseUploadModal) btnCloseUploadModal.addEventListener('click', () => modalUpload.style.display = 'none');
+  if (btnCancelUpload) btnCancelUpload.addEventListener('click', () => modalUpload.style.display = 'none');
+
+  if (btnRefreshSlug) {
+    btnRefreshSlug.addEventListener('click', () => {
+      inputRandomSlug.value = generateRandomSlug();
+    });
+  }
+
+  // File Dropzone Handlers
+  if (inputFile) {
+    inputFile.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) handleFileSelected(file);
+    });
+  }
+
+  if (fileDropzone) {
+    fileDropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      fileDropzone.classList.add('dragover');
+    });
+    fileDropzone.addEventListener('dragleave', () => {
+      fileDropzone.classList.remove('dragover');
+    });
+    fileDropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      fileDropzone.classList.remove('dragover');
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        handleFileSelected(e.dataTransfer.files[0]);
+      }
+    });
+  }
+
+  function handleFileSelected(file) {
+    state.selectedFile = file;
+    dropzoneLabel.textContent = `${file.name} (${formatBytes(file.size)})`;
+
+    // Auto-fill nama aset jika kosong
+    if (!inputAssetName.value.trim()) {
+      inputAssetName.value = file.name.replace(/\.[^/.]+$/, '');
+    }
+
+    // Auto-detect kategori
+    const type = file.type || '';
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (type.startsWith('image/') || ['svg', 'png', 'jpg', 'webp', 'ico'].includes(ext)) {
+      selectAssetCategory.value = 'Gambar';
+    } else if (type.startsWith('video/') || ['mp4', 'webm'].includes(ext)) {
+      selectAssetCategory.value = 'Video';
+    } else if (['js', 'mjs', 'ts'].includes(ext)) {
+      selectAssetCategory.value = 'Script';
+    } else if (ext === 'css') {
+      selectAssetCategory.value = 'CSS';
+    } else if (['pdf', 'doc', 'docx', 'zip'].includes(ext)) {
+      selectAssetCategory.value = 'Dokumen';
+    }
+  }
+
+  // Handle Form Upload Submit
+  if (formUploadAsset) {
+    formUploadAsset.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const name = inputAssetName.value.trim();
+      const category = selectAssetCategory.value;
+      const randomSlug = inputRandomSlug.value.trim().toLowerCase();
+      const customPath = inputCustomPath.value.trim();
+
+      if (!name) {
+        alert('Nama aset wajib diisi.');
+        return;
+      }
+      if (!randomSlug) {
+        alert('Karakter acak wajib diisi.');
+        return;
+      }
+
+      btnSubmitUpload.disabled = true;
+      btnSubmitUpload.querySelector('.btn-label').textContent = 'Mengunggah ke KV...';
+
+      try {
+        let res;
+        if (state.uploadMode === 'file') {
+          if (!state.selectedFile) {
+            alert('Silakan pilih berkas file yang akan diunggah.');
+            btnSubmitUpload.disabled = false;
+            btnSubmitUpload.querySelector('.btn-label').textContent = 'Simpan ke CDN';
+            return;
+          }
+
+          const formData = new FormData();
+          formData.append('name', name);
+          formData.append('category', category);
+          formData.append('randomSlug', randomSlug);
+          if (customPath) formData.append('customPath', customPath);
+          formData.append('file', state.selectedFile);
+
+          res = await fetch('/api/assets', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${state.token}`
+            },
+            body: formData
+          });
+        } else {
+          // Direct Text / Code
+          const content = inputCodeContent.value;
+          if (!content) {
+            alert('Konten kode / teks tidak boleh kosong.');
+            btnSubmitUpload.disabled = false;
+            btnSubmitUpload.querySelector('.btn-label').textContent = 'Simpan ke CDN';
+            return;
+          }
+
+          let mimeType = 'text/plain; charset=utf-8';
+          if (category === 'CSS') mimeType = 'text/css; charset=utf-8';
+          if (category === 'Script') mimeType = 'application/javascript; charset=utf-8';
+
+          res = await fetch('/api/assets', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${state.token}`
+            },
+            body: JSON.stringify({
+              name,
+              category,
+              randomSlug,
+              customPath,
+              content,
+              mimeType
+            })
+          });
+        }
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+          showToast('Aset berhasil disimpan ke CDN!');
+          modalUpload.style.display = 'none';
+          loadAssets();
+        } else {
+          alert('Gagal mengunggah: ' + (data.error || 'Terjadi kesalahan'));
+        }
+      } catch (err) {
+        alert('Gagal mengunggah aset: ' + err.message);
+      } finally {
+        btnSubmitUpload.disabled = false;
+        btnSubmitUpload.querySelector('.btn-label').textContent = 'Simpan ke CDN';
+      }
+    });
+  }
+
+  /* =========================================================================
+     5. Edit Modal & Actions
+     ========================================================================= */
+
+  window.openEditModal = function(id) {
+    const item = state.assets.find(a => a.id === id);
+    if (!item) return;
+
+    editAssetId.value = item.id;
+    editAssetName.value = item.name || '';
+    editAssetCategory.value = item.category || 'Lainnya';
+    editCustomPath.value = item.customPath || '';
+
+    modalEdit.style.display = 'flex';
+  };
+
+  if (btnCloseEditModal) btnCloseEditModal.addEventListener('click', () => modalEdit.style.display = 'none');
+  if (btnCancelEdit) btnCancelEdit.addEventListener('click', () => modalEdit.style.display = 'none');
+
+  if (formEditAsset) {
+    formEditAsset.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = editAssetId.value;
+      const name = editAssetName.value.trim();
+      const category = editAssetCategory.value;
+      const customPath = editCustomPath.value.trim();
+
+      btnSubmitEdit.disabled = true;
+      btnSubmitEdit.querySelector('.btn-label').textContent = 'Menyimpan...';
+
+      try {
+        const res = await apiRequest(`/api/assets/${encodeURIComponent(id)}`, 'PUT', {
+          name,
+          category,
+          customPath
+        });
+
+        if (res && res.success) {
+          showToast('Metadata aset berhasil diperbarui.');
+          modalEdit.style.display = 'none';
+          loadAssets();
+        } else {
+          alert('Gagal update: ' + (res.error || 'Terjadi kesalahan'));
+        }
+      } catch (err) {
+        alert('Error: ' + err.message);
+      } finally {
+        btnSubmitEdit.disabled = false;
+        btnSubmitEdit.querySelector('.btn-label').textContent = 'Simpan Perubahan';
+      }
+    });
+  }
+
+  /* =========================================================================
+     6. Delete Action
+     ========================================================================= */
+
+  window.deleteAsset = async function(id, name) {
+    if (!confirm(`Hapus permanen aset "${name}" dari CDN dan Cloudflare KV?`)) {
       return;
     }
 
     try {
-      const res = await fetch(`/api/assets/${assetId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${MASTER_PIN}` }
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Gagal menghapus aset');
+      const res = await apiRequest(`/api/assets/${encodeURIComponent(id)}`, 'DELETE');
+      if (res && res.success) {
+        showToast(`Aset "${name}" berhasil dihapus.`);
+        loadAssets();
+      } else {
+        alert('Gagal menghapus: ' + (res.error || 'Terjadi kesalahan'));
       }
-      notify(`Aset "${assetName}" berhasil dihapus dari KV!`, 'success');
-      await fetchAssetsFromKV();
     } catch (err) {
-      notify(`Error: ${err.message}`, 'error');
+      alert('Error saat menghapus: ' + err.message);
     }
   };
 
-  function generateSnippet(asset, format) {
-    const host = window.location.origin.includes('localhost') || window.location.origin.includes('file://')
-      ? 'https://cdn.ten.my.id'
-      : window.location.origin;
-    const url = `${host}${asset.path}`;
+  /* =========================================================================
+     7. Preview Modal
+     ========================================================================= */
 
-    switch (format) {
-      case 'url':
-        return url;
-      case 'html':
-        if (asset.type === 'css') {
-          return `<link rel="stylesheet" href="${url}">`;
-        } else if (asset.type === 'js') {
-          return `<script src="${url}"></script>`;
-        } else if (['svg', 'webp', 'png', 'jpg', 'jpeg'].includes(asset.type)) {
-          return `<img src="${url}" alt="${escapeHtml(asset.name)}" loading="lazy">`;
-        }
-        return `<a href="${url}" target="_blank">${escapeHtml(asset.name)}</a>`;
-      case 'md':
-        if (['svg', 'webp', 'png', 'jpg', 'jpeg'].includes(asset.type)) {
-          return `![${asset.name}](${url})`;
-        }
-        return `[${asset.name}](${url})`;
-      case 'css':
-        if (asset.type === 'css') {
-          return `@import url('${url}');`;
-        }
-        return `background-image: url('${url}');`;
-      default:
-        return url;
-    }
-  }
+  window.openPreviewModal = async function(id) {
+    const item = state.assets.find(a => a.id === id);
+    if (!item) return;
 
-  window.openSnippetModal = function(assetId) {
-    const asset = assets.find(a => a.id === assetId);
-    if (!asset) return;
-    activeAsset = asset;
-    modalTitle.textContent = asset.name;
+    previewTitle.textContent = item.name;
+    previewCategoryTag.textContent = item.category || 'Aset';
 
-    if (asset.previewType === 'image' || ['svg', 'png', 'webp', 'jpg'].includes(asset.type)) {
-      modalPreviewBox.style.display = 'flex';
-      modalPreviewBox.innerHTML = `<img src="${asset.path}" alt="${asset.name}" class="modal-preview-img" onerror="this.src='/favicon.svg'">`;
+    const randomUrl = `${BASE_URL}/${item.randomSlug}`;
+    previewRandomUrl.value = randomUrl;
+    previewOpenRandom.href = `/${item.randomSlug}`;
+
+    if (item.customPath) {
+      const customUrl = `${BASE_URL}/${item.customPath}`;
+      previewCustomUrl.value = customUrl;
+      previewOpenCustom.href = `/${item.customPath}`;
+      previewCustomUrlGroup.style.display = 'flex';
     } else {
-      modalPreviewBox.style.display = 'none';
+      previewCustomUrlGroup.style.display = 'none';
     }
 
-    updateSnippetView();
-    modal.classList.add('open');
+    // Media Renderer
+    previewMediaContainer.innerHTML = '<div style="color: var(--text-dim);">Memuat preview...</div>';
+
+    const mime = item.mimeType || '';
+    const ext = (item.extension || '').toLowerCase();
+    const activeUrl = item.customPath ? `/${item.customPath}` : `/${item.randomSlug}`;
+
+    let embedCode = `<a href="${randomUrl}" target="_blank">Lihat Aset</a>`;
+
+    if (mime.startsWith('image/') || ['svg', 'png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext)) {
+      previewMediaContainer.innerHTML = `<img src="${activeUrl}" alt="${escapeHtml(item.name)}">`;
+      embedCode = `<img src="${randomUrl}" alt="${escapeHtml(item.name)}" loading="lazy">`;
+    } else if (mime.startsWith('video/') || ['mp4', 'webm'].includes(ext)) {
+      previewMediaContainer.innerHTML = `<video src="${activeUrl}" controls autoplay muted playsinline></video>`;
+      embedCode = `<video src="${randomUrl}" controls playsinline></video>`;
+    } else if (['css'].includes(ext) || item.category === 'CSS') {
+      embedCode = `<link rel="stylesheet" href="${randomUrl}">`;
+      loadTextPreview(activeUrl);
+    } else if (['js', 'mjs'].includes(ext) || item.category === 'Script') {
+      embedCode = `<script src="${randomUrl}" defer></script>`;
+      loadTextPreview(activeUrl);
+    } else if (['json', 'txt', 'html'].includes(ext)) {
+      embedCode = randomUrl;
+      loadTextPreview(activeUrl);
+    } else {
+      embedCode = `<a href="${randomUrl}" download>Unduh ${escapeHtml(item.name)}</a>`;
+      previewMediaContainer.innerHTML = `
+        <div style="text-align: center;">
+          <div style="font-size: 40px; margin-bottom: 8px;">📄</div>
+          <p style="font-weight: 600;">${escapeHtml(item.name)}</p>
+          <small style="color: var(--text-dim);">${item.sizeFormatted}</small>
+        </div>
+      `;
+    }
+
+    previewEmbedSnippet.value = embedCode;
+    modalPreview.style.display = 'flex';
   };
 
-  function updateSnippetView() {
-    if (!activeAsset) return;
-    const code = generateSnippet(activeAsset, activeFormat);
-    snippetCode.textContent = code;
-  }
-
-  window.copyDirectUrl = async function(url) {
-    const success = await copyText(url);
-    if (success) {
-      notify('Tautan aset CDN berhasil disalin!', 'success');
-    }
-  };
-
-  if (copyModalBtn) {
-    copyModalBtn.addEventListener('click', async () => {
-      if (!snippetCode) return;
-      const text = snippetCode.textContent;
-      const success = await copyText(text);
-      if (success) {
-        notify('Snippet kode berhasil disalin!', 'success');
-        copyModalBtn.textContent = '✓ Tersalin!';
-        setTimeout(() => {
-          copyModalBtn.textContent = 'Salin Kode';
-        }, 1500);
-      }
-    });
-  }
-
-  snippetTabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      snippetTabs.forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      activeFormat = tab.dataset.format;
-      updateSnippetView();
-    });
-  });
-
-  function closeSnippetModal() {
-    modal.classList.remove('open');
-  }
-  if (modalCloseBtn) modalCloseBtn.addEventListener('click', closeSnippetModal);
-  if (modal) {
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) closeSnippetModal();
-    });
-  }
-
-  // Upload Modal Controllers
-  function openUploadModal() {
-    if (uploadModal) uploadModal.classList.add('open');
-  }
-  function closeUploadModal() {
-    if (uploadModal) uploadModal.classList.remove('open');
-  }
-  if (btnOpenUpload) btnOpenUpload.addEventListener('click', openUploadModal);
-  if (uploadCloseBtn) uploadCloseBtn.addEventListener('click', closeUploadModal);
-  if (uploadCancelBtn) uploadCancelBtn.addEventListener('click', closeUploadModal);
-  if (uploadModal) {
-    uploadModal.addEventListener('click', (e) => {
-      if (e.target === uploadModal) closeUploadModal();
-    });
-  }
-
-  // Toggle Input Type (Text vs File)
-  if (radioTypeText && radioTypeFile) {
-    radioTypeText.addEventListener('change', () => {
-      if (radioTypeText.checked) {
-        groupContentText.style.display = 'block';
-        groupContentFile.style.display = 'none';
-      }
-    });
-    radioTypeFile.addEventListener('change', () => {
-      if (radioTypeFile.checked) {
-        groupContentText.style.display = 'none';
-        groupContentFile.style.display = 'block';
-      }
-    });
-  }
-
-  // Auto infer slug from name
-  if (inputAssetName && inputAssetSlug) {
-    inputAssetName.addEventListener('input', () => {
-      if (!inputAssetSlug.dataset.manual) {
-        const val = inputAssetName.value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
-        const cat = document.getElementById('select-asset-category').value;
-        const ext = cat === 'css' ? '.css' : (cat === 'js' ? '.js' : '');
-        inputAssetSlug.value = `${cat}/${val}${ext}`;
-      }
-    });
-    inputAssetSlug.addEventListener('input', () => {
-      inputAssetSlug.dataset.manual = 'true';
-    });
-  }
-
-  // Upload Form Submission to Cloudflare KV
-  if (uploadForm) {
-    uploadForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const submitBtn = document.getElementById('upload-submit-btn');
-      const apiKey = document.getElementById('input-api-key').value || MASTER_PIN;
-      const isFile = radioTypeFile && radioTypeFile.checked;
-
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '<span>Menyimpan ke KV...</span>';
-
-      try {
-        let response;
-        if (isFile) {
-          const fileInput = document.getElementById('input-file');
-          if (!fileInput.files || fileInput.files.length === 0) {
-            throw new Error('Pilih berkas yang ingin diupload.');
-          }
-          const formData = new FormData();
-          formData.append('name', inputAssetName.value);
-          formData.append('category', document.getElementById('select-asset-category').value);
-          formData.append('slug', inputAssetSlug.value);
-          formData.append('desc', document.getElementById('input-asset-desc').value);
-          formData.append('file', fileInput.files[0]);
-
-          response = await fetch('/api/assets', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${apiKey}` },
-            body: formData
-          });
-        } else {
-          const payload = {
-            name: inputAssetName.value,
-            category: document.getElementById('select-asset-category').value,
-            slug: inputAssetSlug.value,
-            desc: document.getElementById('input-asset-desc').value,
-            content: document.getElementById('textarea-content').value
-          };
-
-          response = await fetch('/api/assets', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify(payload)
-          });
-        }
-
-        const data = await response.json();
-        if (!response.ok || !data.success) {
-          throw new Error(data.error || 'Gagal menyimpan ke KV');
-        }
-
-        notify('Aset berhasil disimpan ke database Cloudflare KV!', 'success');
-        uploadForm.reset();
-        delete inputAssetSlug.dataset.manual;
-        closeUploadModal();
-        await fetchAssetsFromKV();
-
-      } catch (err) {
-        notify(`Error: ${err.message}`, 'error');
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = '<span>Simpan ke KV</span>';
-      }
-    });
-  }
-
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      closeSnippetModal();
-      closeUploadModal();
-    }
-  });
-
-  // Filter Chips
-  filterChips.forEach(chip => {
-    chip.addEventListener('click', () => {
-      filterChips.forEach(c => c.classList.remove('active'));
-      chip.classList.add('active');
-      currentCategory = chip.dataset.category;
-      renderAssets();
-    });
-  });
-
-  // Search input
-  if (searchInput) {
-    searchInput.addEventListener('input', (e) => {
-      searchQuery = e.target.value.trim();
-      renderAssets();
-    });
-  }
-
-  async function copyText(text) {
-    if (window.TEN && window.TEN.copyToClipboard) {
-      return await window.TEN.copyToClipboard(text);
-    }
+  async function loadTextPreview(url) {
     try {
-      await navigator.clipboard.writeText(text);
-      return true;
+      const res = await fetch(url);
+      const text = await res.text();
+      previewMediaContainer.innerHTML = `<pre><code>${escapeHtml(text.slice(0, 3000))}</code></pre>`;
     } catch {
-      return false;
+      previewMediaContainer.innerHTML = `<div style="color: var(--text-dim);">Tidak dapat menampilkan teks preview</div>`;
     }
   }
 
-  function notify(msg, type = 'success') {
-    if (window.TEN && window.TEN.showToast) {
-      window.TEN.showToast(msg, type);
-    } else {
-      alert(msg);
+  if (btnClosePreviewModal) btnClosePreviewModal.addEventListener('click', () => modalPreview.style.display = 'none');
+
+  /* =========================================================================
+     8. Utility Functions & Copy
+     ========================================================================= */
+
+  window.copyText = function(text) {
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('Tautan berhasil disalin ke clipboard!');
+    }).catch(() => {
+      // Fallback
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showToast('Tautan berhasil disalin!');
+    });
+  };
+
+  document.querySelectorAll('.btn-copy').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetId = btn.getAttribute('data-target');
+      const input = document.getElementById(targetId);
+      if (input) copyText(input.value);
+    });
+  });
+
+  function showToast(message) {
+    if (!toast) return;
+    toast.textContent = message;
+    toast.classList.add('show');
+    setTimeout(() => {
+      toast.classList.remove('show');
+    }, 2500);
+  }
+
+  function generateRandomSlug(length = 7) {
+    const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
+    let result = '';
+    for (let i = 0; i < length; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  }
+
+  function formatBytes(bytes) {
+    if (!bytes || bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  }
+
+  function formatDate(isoStr) {
+    if (!isoStr) return '-';
+    try {
+      const d = new Date(isoStr);
+      return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    } catch {
+      return isoStr;
     }
   }
 
   function escapeHtml(str) {
-    return (str || '')
+    if (!str) return '';
+    return str
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
@@ -689,6 +747,33 @@ document.addEventListener('DOMContentLoaded', () => {
       .replace(/'/g, '&#039;');
   }
 
-  // Boot
-  init();
+  function closeAllModals() {
+    if (modalUpload) modalUpload.style.display = 'none';
+    if (modalEdit) modalEdit.style.display = 'none';
+    if (modalPreview) modalPreview.style.display = 'none';
+  }
+
+  async function apiRequest(endpoint, method = 'GET', body = null) {
+    const headers = {};
+    if (state.token) {
+      headers['Authorization'] = `Bearer ${state.token}`;
+    }
+    if (body) {
+      headers['Content-Type'] = 'application/json';
+    }
+
+    const options = { method, headers };
+    if (body) {
+      options.body = JSON.stringify(body);
+    }
+
+    const res = await fetch(endpoint, options);
+    if (res.status === 401) {
+      state.token = '';
+      localStorage.removeItem('cdn_token');
+      showLoginView();
+      return null;
+    }
+    return res.json();
+  }
 });

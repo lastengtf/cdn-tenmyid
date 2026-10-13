@@ -1,6 +1,6 @@
 # ===================================================
-# Cloudflare Worker & KV Configuration (wrangler.toml)
-# Domain: cdn.ten.my.id
+# Cloudflare Worker & KV Configuration
+# Platform: CDN TEN (cdn.ten.my.id)
 # ===================================================
 
 name = "cdn-tenmyid"
@@ -12,19 +12,14 @@ compatibility_date = "2024-09-23"
 directory = "./public"
 binding = "ASSETS"
 
-# Environment Variables
+# Environment Variables (Dapat disesuaikan atau dioverride di Dashboard Cloudflare)
 [vars]
-ADMIN_API_KEY = "ten-cdn-secret-key"
+ADMIN_EMAIL = "admin@ten.my.id"
+ADMIN_PASSWORD = "password123"
 
 # ==============================================================================
 # Cloudflare KV Namespace Binding
-# Opsi 1 (Direkomendasikan): Hubungkan lewat Dashboard Cloudflare:
-#         Settings > Bindings (atau Variables and Secrets) > KV Namespace
-#         - Variable name: CDN_KV
-#         - Pilih KV Namespace yang sudah Anda buat.
-#
-# Opsi 2: Buka komentar di bawah ini dan ganti ID dengan ID asli KV Anda (32 karakter hex):
-# [[kv_namespaces]]
-# binding = "CDN_KV"
-# id = "MASUKKAN_KV_ID_ASLI_DISINI"
 # ==============================================================================
+[[kv_namespaces]]
+binding = "CDN_KV"
+id = "dce4b6259909484888bf22eb63dcf826"
