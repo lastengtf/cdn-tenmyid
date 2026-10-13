@@ -1,18 +1,23 @@
 # ===================================================
-# Cloudflare Pages & KV Configuration (wrangler.toml)
+# Cloudflare Worker & KV Configuration (wrangler.toml)
 # Domain: cdn.ten.my.id
 # ===================================================
 
 name = "cdn-tenmyid"
+main = "src/index.js"
 compatibility_date = "2024-09-23"
-pages_build_output_dir = "public"
+
+# Cloudflare Workers with Static Assets
+[assets]
+directory = "./public"
+binding = "ASSETS"
 
 # Cloudflare KV Namespace Binding
-# Dashboard: Settings > Functions > KV namespace bindings
+# Dashboard: Settings > Variables and Secrets > KV namespace bindings (atau Settings > Bindings)
 # Variable Name: CDN_KV
 [[kv_namespaces]]
 binding = "CDN_KV"
-id = "CDN_KV_NAMESPACE_ID" # Ganti dengan KV Namespace ID dari Cloudflare Dashboard
+id = "CDN_KV_NAMESPACE_ID" # Ganti dengan ID KV Namespace Anda jika deploy via CLI
 
 # Environment Variables
 [vars]
