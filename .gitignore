@@ -20,5 +20,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Cloudflare Pages local preview cache
+# Cloudflare Pages local preview cache & local secrets
 .wrangler/
+.dev.vars
