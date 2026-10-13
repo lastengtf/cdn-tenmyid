@@ -1,7 +1,7 @@
 /**
  * CDN TEN (cdn.ten.my.id) - Cloudflare Worker Entrypoint
  * Dedicated Personal Content Delivery Network
- * Powered by Cloudflare Workers & Cloudflare KV
+ * Powered by Cloudflare Workers & Cloudflare KV with Local Fallback
  */
 
 const CORS_HEADERS = {
@@ -9,6 +9,69 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, HEAD',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-requested-with',
   'Timing-Allow-Origin': '*'
+};
+
+// In-memory store fallback for ultra-fast local dev and offline reliability
+const memoryKV = new Map();
+
+const kvStore = {
+  async get(env, key, options = {}) {
+    if (env && env.CDN_KV) {
+      try {
+        const val = await env.CDN_KV.get(key, options);
+        if (val !== null && val !== undefined) return val;
+      } catch (err) {
+        // Fallback to local memory if local miniflare proxy drops
+      }
+    }
+    return memoryKV.get(key) || null;
+  },
+
+  async put(env, key, value, options = {}) {
+    memoryKV.set(key, value);
+    if (env && env.CDN_KV) {
+      try {
+        await env.CDN_KV.put(key, value, options);
+      } catch (err) {
+        // Handled by memoryKV
+      }
+    }
+  },
+
+  async delete(env, key) {
+    memoryKV.delete(key);
+    if (env && env.CDN_KV) {
+      try {
+        await env.CDN_KV.delete(key);
+      } catch (err) {
+        // Handled by memoryKV
+      }
+    }
+  },
+
+  async list(env, options = {}) {
+    const keysMap = new Map();
+    const prefix = options.prefix || '';
+
+    if (env && env.CDN_KV) {
+      try {
+        const res = await env.CDN_KV.list(options);
+        if (res && res.keys) {
+          for (const k of res.keys) {
+            keysMap.set(k.name, k);
+          }
+        }
+      } catch (err) {}
+    }
+
+    for (const k of memoryKV.keys()) {
+      if (k.startsWith(prefix) && !keysMap.has(k)) {
+        keysMap.set(k, { name: k });
+      }
+    }
+
+    return { keys: Array.from(keysMap.values()) };
+  }
 };
 
 export default {
@@ -73,11 +136,9 @@ export default {
     }
 
     // 5. CDN File Serving: cdn.ten.my.id/<random_slug> or cdn.ten.my.id/<custom_path>
-    if (env.CDN_KV) {
-      const cdnResponse = await handleServeCdnAsset(cleanPath, request, env);
-      if (cdnResponse) {
-        return cdnResponse;
-      }
+    const cdnResponse = await handleServeCdnAsset(cleanPath, request, env);
+    if (cdnResponse) {
+      return cdnResponse;
     }
 
     // 6. Static Portal Assets fallback (CSS, JS, favicon from ./public)
@@ -103,11 +164,9 @@ export default {
    ========================================================================= */
 
 async function getAuthenticatedSession(request, env) {
-  // Check Authorization Bearer header
   const authHeader = request.headers.get('Authorization') || '';
   let token = authHeader.replace(/^Bearer\s+/i, '').trim();
 
-  // If not found in header, check cookie
   if (!token) {
     const cookieHeader = request.headers.get('Cookie') || '';
     const match = cookieHeader.match(/cdn_session=([^;]+)/);
@@ -118,14 +177,12 @@ async function getAuthenticatedSession(request, env) {
 
   if (!token) return null;
 
-  if (env.CDN_KV) {
-    try {
-      const sessionJson = await env.CDN_KV.get(`session:${token}`);
-      if (sessionJson) {
-        return { token, ...JSON.parse(sessionJson) };
-      }
-    } catch {}
-  }
+  try {
+    const sessionJson = await kvStore.get(env, `session:${token}`);
+    if (sessionJson) {
+      return { token, ...(typeof sessionJson === 'string' ? JSON.parse(sessionJson) : sessionJson) };
+    }
+  } catch {}
 
   return null;
 }
@@ -146,12 +203,9 @@ async function handleLogin(request, env) {
         createdAt: new Date().toISOString()
       };
 
-      if (env.CDN_KV) {
-        // Save session valid for 30 days (2592000 seconds)
-        await env.CDN_KV.put(`session:${token}`, JSON.stringify(sessionData), {
-          expirationTtl: 2592000
-        });
-      }
+      await kvStore.put(env, `session:${token}`, JSON.stringify(sessionData), {
+        expirationTtl: 2592000
+      });
 
       const headers = new Headers(CORS_HEADERS);
       headers.set('Content-Type', 'application/json; charset=utf-8');
@@ -187,10 +241,8 @@ async function handleAuthMe(request, env) {
 
 async function handleLogout(request, env) {
   const session = await getAuthenticatedSession(request, env);
-  if (session && env.CDN_KV) {
-    try {
-      await env.CDN_KV.delete(`session:${session.token}`);
-    } catch {}
+  if (session) {
+    await kvStore.delete(env, `session:${session.token}`);
   }
 
   const headers = new Headers(CORS_HEADERS);
@@ -205,24 +257,19 @@ async function handleLogout(request, env) {
    ========================================================================= */
 
 async function handleGetAssets(env) {
-  if (!env.CDN_KV) {
-    return jsonResponse({ success: false, error: 'Cloudflare KV (CDN_KV) belum terhubung.' }, 500);
-  }
-
   try {
-    const listResult = await env.CDN_KV.list({ prefix: 'asset:meta:' });
+    const listResult = await kvStore.list(env, { prefix: 'asset:meta:' });
     const assets = [];
 
     for (const key of listResult.keys) {
-      const metaJson = await env.CDN_KV.get(key.name);
+      const metaJson = await kvStore.get(env, key.name);
       if (metaJson) {
         try {
-          assets.push(JSON.parse(metaJson));
+          assets.push(typeof metaJson === 'string' ? JSON.parse(metaJson) : metaJson);
         } catch {}
       }
     }
 
-    // Urutkan dari yang terbaru
     assets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
     return jsonResponse({
@@ -236,19 +283,13 @@ async function handleGetAssets(env) {
 }
 
 async function handleGetAssetDetail(assetId, env) {
-  if (!env.CDN_KV) return jsonResponse({ success: false, error: 'KV belum terhubung.' }, 500);
-
-  const metaJson = await env.CDN_KV.get(`asset:meta:${assetId}`);
+  const metaJson = await kvStore.get(env, `asset:meta:${assetId}`);
   if (!metaJson) return jsonResponse({ success: false, error: 'Aset tidak ditemukan.' }, 404);
 
-  return jsonResponse({ success: true, data: JSON.parse(metaJson) });
+  return jsonResponse({ success: true, data: typeof metaJson === 'string' ? JSON.parse(metaJson) : metaJson });
 }
 
 async function handleUploadAsset(request, env) {
-  if (!env.CDN_KV) {
-    return jsonResponse({ success: false, error: 'Cloudflare KV (CDN_KV) belum terhubung.' }, 500);
-  }
-
   try {
     const contentType = request.headers.get('content-type') || '';
     let payload = {};
@@ -287,13 +328,12 @@ async function handleUploadAsset(request, env) {
       payload.name = payload.fileName || 'Untitled Asset';
     }
 
-    // 1. Generate unique random slug (6-8 karakter acak)
+    // 1. Generate unique random slug
     let randomSlug = payload.randomSlug ? sanitizeSlug(payload.randomSlug) : '';
     if (!randomSlug) {
       randomSlug = await generateUniqueSlug(env);
     } else {
-      // Verifikasi apakah slug acak sudah terpakai
-      const existing = await env.CDN_KV.get(`slug:${randomSlug}`);
+      const existing = await kvStore.get(env, `slug:${randomSlug}`);
       if (existing) {
         return jsonResponse({ success: false, error: `Karakter acak '${randomSlug}' sudah digunakan. Silakan generate ulang.` }, 409);
       }
@@ -304,16 +344,15 @@ async function handleUploadAsset(request, env) {
     if (payload.customPath) {
       cleanCustomPath = sanitizeCustomPath(payload.customPath);
       if (cleanCustomPath === randomSlug) {
-        cleanCustomPath = ''; // Hindari duplikasi jika sama dengan random slug
+        cleanCustomPath = '';
       } else {
-        const existingCustom = await env.CDN_KV.get(`slug:${cleanCustomPath}`);
+        const existingCustom = await kvStore.get(env, `slug:${cleanCustomPath}`);
         if (existingCustom) {
           return jsonResponse({ success: false, error: `Custom path '${cleanCustomPath}' sudah terpakai oleh aset lain.` }, 409);
         }
       }
     }
 
-    // Tentukan ekstensi file
     const ext = getExtension(payload.fileName || cleanCustomPath || payload.name || '');
     const assetId = `asset_${randomSlug}`;
 
@@ -332,19 +371,17 @@ async function handleUploadAsset(request, env) {
       updatedAt: new Date().toISOString()
     };
 
-    // Simpan file content sebagai binary ArrayBuffer langsung ke KV
-    await env.CDN_KV.put(`asset:file:${assetId}`, fileBuffer);
-
-    // Simpan metadata JSON ke KV
-    await env.CDN_KV.put(`asset:meta:${assetId}`, JSON.stringify(metadata));
+    // Simpan file content dan metadata ke KV
+    await kvStore.put(env, `asset:file:${assetId}`, fileBuffer);
+    await kvStore.put(env, `asset:meta:${assetId}`, JSON.stringify(metadata));
 
     // Simpan routing index
-    await env.CDN_KV.put(`slug:${randomSlug}`, assetId);
+    await kvStore.put(env, `slug:${randomSlug}`, assetId);
     if (ext) {
-      await env.CDN_KV.put(`slug:${randomSlug}.${ext}`, assetId);
+      await kvStore.put(env, `slug:${randomSlug}.${ext}`, assetId);
     }
     if (cleanCustomPath) {
-      await env.CDN_KV.put(`slug:${cleanCustomPath}`, assetId);
+      await kvStore.put(env, `slug:${cleanCustomPath}`, assetId);
     }
 
     return jsonResponse({
@@ -358,32 +395,27 @@ async function handleUploadAsset(request, env) {
 }
 
 async function handleUpdateAsset(assetId, request, env) {
-  if (!env.CDN_KV) return jsonResponse({ success: false, error: 'KV belum terhubung.' }, 500);
-
   try {
-    const metaJson = await env.CDN_KV.get(`asset:meta:${assetId}`);
+    const metaJson = await kvStore.get(env, `asset:meta:${assetId}`);
     if (!metaJson) return jsonResponse({ success: false, error: 'Aset tidak ditemukan.' }, 404);
 
-    const meta = JSON.parse(metaJson);
+    const meta = typeof metaJson === 'string' ? JSON.parse(metaJson) : metaJson;
     const body = await request.json();
 
     const newName = (body.name || meta.name).trim();
     const newCategory = (body.category || meta.category).trim();
     const newCustomPath = body.customPath !== undefined ? sanitizeCustomPath(body.customPath) : meta.customPath;
 
-    // Jika custom path berubah
     if (newCustomPath !== meta.customPath) {
       if (newCustomPath) {
-        // Cek collision
-        const existing = await env.CDN_KV.get(`slug:${newCustomPath}`);
+        const existing = await kvStore.get(env, `slug:${newCustomPath}`);
         if (existing && existing !== assetId) {
           return jsonResponse({ success: false, error: `Custom path '${newCustomPath}' sudah digunakan aset lain.` }, 409);
         }
-        await env.CDN_KV.put(`slug:${newCustomPath}`, assetId);
+        await kvStore.put(env, `slug:${newCustomPath}`, assetId);
       }
-      // Hapus mapping custom path lama
       if (meta.customPath) {
-        await env.CDN_KV.delete(`slug:${meta.customPath}`);
+        await kvStore.delete(env, `slug:${meta.customPath}`);
       }
     }
 
@@ -392,7 +424,7 @@ async function handleUpdateAsset(assetId, request, env) {
     meta.customPath = newCustomPath;
     meta.updatedAt = new Date().toISOString();
 
-    await env.CDN_KV.put(`asset:meta:${assetId}`, JSON.stringify(meta));
+    await kvStore.put(env, `asset:meta:${assetId}`, JSON.stringify(meta));
 
     return jsonResponse({
       success: true,
@@ -405,28 +437,23 @@ async function handleUpdateAsset(assetId, request, env) {
 }
 
 async function handleDeleteAsset(assetId, env) {
-  if (!env.CDN_KV) return jsonResponse({ success: false, error: 'KV belum terhubung.' }, 500);
-
   try {
-    const metaJson = await env.CDN_KV.get(`asset:meta:${assetId}`);
+    const metaJson = await kvStore.get(env, `asset:meta:${assetId}`);
     if (metaJson) {
-      const meta = JSON.parse(metaJson);
-      // Hapus routing slug acak
+      const meta = typeof metaJson === 'string' ? JSON.parse(metaJson) : metaJson;
       if (meta.randomSlug) {
-        await env.CDN_KV.delete(`slug:${meta.randomSlug}`);
+        await kvStore.delete(env, `slug:${meta.randomSlug}`);
         if (meta.extension) {
-          await env.CDN_KV.delete(`slug:${meta.randomSlug}.${meta.extension}`);
+          await kvStore.delete(env, `slug:${meta.randomSlug}.${meta.extension}`);
         }
       }
-      // Hapus routing custom path
       if (meta.customPath) {
-        await env.CDN_KV.delete(`slug:${meta.customPath}`);
+        await kvStore.delete(env, `slug:${meta.customPath}`);
       }
     }
 
-    // Hapus file content dan metadata
-    await env.CDN_KV.delete(`asset:file:${assetId}`);
-    await env.CDN_KV.delete(`asset:meta:${assetId}`);
+    await kvStore.delete(env, `asset:file:${assetId}`);
+    await kvStore.delete(env, `asset:meta:${assetId}`);
 
     return jsonResponse({
       success: true,
@@ -443,32 +470,42 @@ async function handleDeleteAsset(assetId, env) {
 
 async function handleServeCdnAsset(cleanPath, request, env) {
   try {
-    const assetId = await env.CDN_KV.get(`slug:${cleanPath}`);
+    const assetId = await kvStore.get(env, `slug:${cleanPath}`);
     if (!assetId) return null;
 
-    // Ambil metadata & file buffer
-    const [metaJson, fileBuffer] = await Promise.all([
-      env.CDN_KV.get(`asset:meta:${assetId}`),
-      env.CDN_KV.get(`asset:file:${assetId}`, { type: 'arrayBuffer' })
+    const [metaJson, fileData] = await Promise.all([
+      kvStore.get(env, `asset:meta:${assetId}`),
+      kvStore.get(env, `asset:file:${assetId}`, { type: 'arrayBuffer' })
     ]);
 
-    if (!fileBuffer) return null;
+    if (!fileData) return null;
 
     let mimeType = 'application/octet-stream';
     let filename = cleanPath.split('/').pop() || 'file';
 
     if (metaJson) {
       try {
-        const meta = JSON.parse(metaJson);
+        const meta = typeof metaJson === 'string' ? JSON.parse(metaJson) : metaJson;
         mimeType = meta.mimeType || mimeType;
         filename = meta.fileName || filename;
       } catch {}
     }
 
+    // Convert string to buffer if stored as text
+    let fileBuffer;
+    if (typeof fileData === 'string') {
+      fileBuffer = new TextEncoder().encode(fileData).buffer;
+    } else if (fileData instanceof ArrayBuffer) {
+      fileBuffer = fileData;
+    } else if (fileData && fileData.buffer instanceof ArrayBuffer) {
+      fileBuffer = fileData.buffer;
+    } else {
+      fileBuffer = new ArrayBuffer(0);
+    }
+
     const totalBytes = fileBuffer.byteLength;
     const etag = `"${assetId}-${totalBytes}"`;
 
-    // Cek cache validation (If-None-Match)
     const ifNoneMatch = request.headers.get('If-None-Match');
     if (ifNoneMatch && ifNoneMatch === etag) {
       return new Response(null, {
@@ -481,7 +518,7 @@ async function handleServeCdnAsset(cleanPath, request, env) {
       });
     }
 
-    // Range Request Support (video & media streaming)
+    // HTTP Range Requests Support
     const rangeHeader = request.headers.get('Range');
     if (rangeHeader && rangeHeader.startsWith('bytes=')) {
       const parts = rangeHeader.replace('bytes=', '').split('-');
@@ -509,7 +546,6 @@ async function handleServeCdnAsset(cleanPath, request, env) {
       }
     }
 
-    // Standard Response
     return new Response(fileBuffer, {
       status: 200,
       headers: {
@@ -544,7 +580,7 @@ function jsonResponse(data, status = 200) {
 }
 
 async function generateUniqueSlug(env, length = 7) {
-  const chars = 'abcdefghjkmnpqrstuvwxyz23456789'; // Hilangkan huruf/angka ambigu seperti l, 1, 0, o
+  const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
   for (let attempt = 0; attempt < 10; attempt++) {
     let slug = '';
     const bytes = new Uint8Array(length);
@@ -552,13 +588,11 @@ async function generateUniqueSlug(env, length = 7) {
     for (let i = 0; i < length; i++) {
       slug += chars[bytes[i] % chars.length];
     }
-    // Pastikan tidak ada collision di KV
-    const exists = await env.CDN_KV.get(`slug:${slug}`);
+    const exists = await kvStore.get(env, `slug:${slug}`);
     if (!exists) {
       return slug;
     }
   }
-  // Fallback timestamp hex jika looping collision
   return Date.now().toString(36).slice(-length);
 }
 
@@ -573,8 +607,8 @@ function sanitizeSlug(slug) {
 function sanitizeCustomPath(path) {
   return (path || '')
     .trim()
-    .replace(/^\/+|\/+$/g, '') // Hapus leading dan trailing slash
-    .replace(/\/+/g, '/')      // Hapus double slash
+    .replace(/^\/+|\/+$/g, '')
+    .replace(/\/+/g, '/')
     .replace(/[^a-zA-Z0-9\-_.//]/g, '');
 }
 
@@ -589,7 +623,6 @@ function getExtension(filename) {
 function getMimeTypeByExt(extOrFile) {
   const ext = extOrFile.includes('.') ? getExtension(extOrFile) : extOrFile.toLowerCase();
   const map = {
-    // Gambar
     'png': 'image/png',
     'jpg': 'image/jpeg',
     'jpeg': 'image/jpeg',
@@ -598,14 +631,12 @@ function getMimeTypeByExt(extOrFile) {
     'svg': 'image/svg+xml',
     'ico': 'image/x-icon',
     'avif': 'image/avif',
-    // Video & Audio
     'mp4': 'video/mp4',
     'webm': 'video/webm',
     'ogv': 'video/ogg',
     'mp3': 'audio/mpeg',
     'wav': 'audio/wav',
     'ogg': 'audio/ogg',
-    // Code & Styles
     'css': 'text/css; charset=utf-8',
     'js': 'application/javascript; charset=utf-8',
     'mjs': 'application/javascript; charset=utf-8',
@@ -613,12 +644,10 @@ function getMimeTypeByExt(extOrFile) {
     'html': 'text/html; charset=utf-8',
     'xml': 'application/xml; charset=utf-8',
     'txt': 'text/plain; charset=utf-8',
-    // Fonts
     'woff2': 'font/woff2',
     'woff': 'font/woff',
     'ttf': 'font/ttf',
     'otf': 'font/otf',
-    // Dokumen & Archive
     'pdf': 'application/pdf',
     'zip': 'application/zip',
     'gz': 'application/gzip',
