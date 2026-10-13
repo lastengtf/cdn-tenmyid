@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CDN TEN — Personal Asset Delivery</title>
+  <title>CDN TEN — Daftar Aset</title>
   <meta name="description" content="Platform Personal CDN TEN (cdn.ten.my.id) untuk hosting dan pengelolaan aset digital via Cloudflare KV.">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 
@@ -22,16 +22,15 @@
   <div id="view-login" class="view-container">
     <div class="login-card">
       <div class="login-brand">
-        <div class="brand-badge">⚡ CDN</div>
         <h1 class="brand-title">CDN TEN</h1>
-        <p class="brand-subtitle">cdn.ten.my.id • Personal CDN</p>
+        <p class="brand-subtitle">cdn.ten.my.id</p>
       </div>
 
       <div id="login-error" class="alert-box alert-error" style="display: none;"></div>
 
       <form id="form-login" class="auth-form" autocomplete="on">
         <div class="form-group">
-          <label for="login-email">Email Administrator</label>
+          <label for="login-email">Email</label>
           <input 
             type="email" 
             id="login-email" 
@@ -58,19 +57,15 @@
         </div>
 
         <button type="submit" id="btn-submit-login" class="btn btn-primary btn-block">
-          <span class="btn-label">Masuk ke Dashboard</span>
+          <span class="btn-label">Masuk</span>
         </button>
       </form>
-
-      <div class="login-footer">
-        <small>Kredensial dikonfigurasi melalui Cloudflare Dashboard Variables.</small>
-      </div>
     </div>
   </div>
 
 
   <!-- =========================================================================
-       2. VIEW: ADMIN DASHBOARD
+       2. VIEW: DAFTAR ASET (ADMIN)
        ========================================================================= -->
   <div id="view-admin" class="view-container" style="display: none;">
     <!-- Top Bar -->
@@ -78,53 +73,33 @@
       <div class="header-container">
         <div class="header-left">
           <div class="header-brand">
-            <span class="header-logo">⚡</span>
             <span class="header-title">CDN TEN</span>
             <span class="header-domain">cdn.ten.my.id</span>
           </div>
         </div>
         <div class="header-right">
-          <div class="user-pill" title="Akun Aktif">
-            <span class="user-dot"></span>
-            <span id="user-email-display">admin</span>
-          </div>
+          <span class="user-email-text" id="user-email-display">admin</span>
           <button id="btn-open-upload" class="btn btn-primary btn-sm">
-            <span>+ Unggah Aset</span>
+            + Tambah Aset
           </button>
           <button id="btn-logout" class="btn btn-secondary btn-sm" title="Keluar dari sesi">
-            <span>Keluar</span>
+            Keluar
           </button>
         </div>
       </div>
     </header>
 
-    <!-- Main Content -->
+    <!-- Main Content: Daftar Aset -->
     <main class="admin-main">
       <div class="admin-container">
         
-        <!-- Summary Stats -->
-        <section class="stats-grid">
-          <div class="stat-card">
-            <span class="stat-label">Total Aset</span>
-            <span class="stat-value" id="stat-total-assets">0</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label">Kategori</span>
-            <span class="stat-value" id="stat-total-categories">0</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-label">Total Penyimpanan</span>
-            <span class="stat-value" id="stat-total-size">0 B</span>
-          </div>
-        </section>
-
-        <!-- Filter & Search Toolbar -->
-        <section class="toolbar">
+        <!-- Filter & Search Bar -->
+        <div class="toolbar-row">
           <div class="toolbar-search">
             <input 
               type="text" 
               id="input-search" 
-              placeholder="Cari nama aset, kode acak, atau custom path..."
+              placeholder="Cari aset..."
             >
           </div>
           <div class="toolbar-categories" id="category-filter-list">
@@ -136,41 +111,37 @@
             <button class="cat-pill" data-category="Dokumen">Dokumen</button>
             <button class="cat-pill" data-category="Lainnya">Lainnya</button>
           </div>
-        </section>
+        </div>
 
-        <!-- Assets List Table / Cards -->
-        <section class="assets-section">
-          <div class="table-card">
-            <div class="table-responsive">
-              <table class="assets-table">
-                <thead>
-                  <tr>
-                    <th>Aset</th>
-                    <th>Kategori</th>
-                    <th>URL Acak (Random)</th>
-                    <th>Custom Path (URL Khusus)</th>
-                    <th>Ukuran</th>
-                    <th>Tanggal</th>
-                    <th class="text-right">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody id="assets-table-body">
-                  <!-- Diisi secara dinamis via JavaScript -->
-                </tbody>
-              </table>
-            </div>
-
-            <!-- Empty State -->
-            <div id="assets-empty-state" class="empty-state" style="display: none;">
-              <div class="empty-icon">📦</div>
-              <h3>Belum ada aset tersimpan</h3>
-              <p>Mulai unggah gambar, video, kode script, stylesheet CSS, atau file lainnya ke CDN.</p>
-              <button class="btn btn-primary btn-sm btn-open-upload-trigger">
-                + Unggah Aset Pertama
-              </button>
-            </div>
+        <!-- Tabel Daftar Aset -->
+        <div class="table-card">
+          <div class="table-responsive">
+            <table class="assets-table">
+              <thead>
+                <tr>
+                  <th>Nama Aset</th>
+                  <th>Kategori</th>
+                  <th>URL Acak (Random)</th>
+                  <th>Custom Path</th>
+                  <th>Ukuran</th>
+                  <th>Tanggal</th>
+                  <th class="text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="assets-table-body">
+                <!-- Diisi via JavaScript -->
+              </tbody>
+            </table>
           </div>
-        </section>
+
+          <!-- Empty State -->
+          <div id="assets-empty-state" class="empty-state" style="display: none;">
+            <p>Belum ada aset tersimpan.</p>
+            <button class="btn btn-primary btn-sm btn-open-upload-trigger">
+              + Tambah Aset
+            </button>
+          </div>
+        </div>
 
       </div>
     </main>
@@ -178,79 +149,72 @@
 
 
   <!-- =========================================================================
-       3. MODAL: UPLOAD ASSET
+       3. MODAL: TAMBAH ASET
        ========================================================================= -->
   <div id="modal-upload" class="modal-overlay" style="display: none;">
     <div class="modal-box modal-lg">
       <div class="modal-header">
-        <h2 class="modal-title">Unggah Aset Baru</h2>
+        <h2 class="modal-title">Tambah Aset Baru</h2>
         <button type="button" class="btn-close-modal" id="btn-close-upload-modal">&times;</button>
       </div>
 
       <div class="modal-body">
-        <!-- Switch Mode: Upload File vs Input Kode/Teks Langsung -->
         <div class="upload-mode-tabs">
-          <button type="button" class="tab-btn active" id="tab-mode-file">Berkas / File</button>
+          <button type="button" class="tab-btn active" id="tab-mode-file">Upload File</button>
           <button type="button" class="tab-btn" id="tab-mode-code">Teks / Kode Langsung</button>
         </div>
 
         <form id="form-upload-asset">
-          <!-- Area File Dropzone -->
+          <!-- File Input -->
           <div id="section-file-input" class="form-group">
             <div class="dropzone" id="file-dropzone">
               <input type="file" id="input-file" class="file-hidden">
               <div class="dropzone-content">
-                <span class="dropzone-icon">📁</span>
-                <p class="dropzone-text" id="dropzone-label">Pilih file atau seret file ke sini</p>
-                <small class="dropzone-hint">Mendukung Gambar (PNG, JPG, WebP, SVG), Video (MP4, WebM), Script (JS), CSS, Font, PDF, Dokumen</small>
+                <p class="dropzone-text" id="dropzone-label">Pilih atau seret file ke sini</p>
+                <small class="dropzone-hint">Gambar, video, audio, script, css, font, dokumen, dll.</small>
               </div>
             </div>
           </div>
 
-          <!-- Area Text/Code Input (Opsional untuk buat JS/CSS cepat) -->
+          <!-- Direct Code Input -->
           <div id="section-code-input" class="form-group" style="display: none;">
-            <label for="input-code-content">Konten Kode / Teks</label>
+            <label for="input-code-content">Konten Teks / Kode</label>
             <textarea 
               id="input-code-content" 
               rows="6" 
-              placeholder="Ketik atau tempel kode CSS, JavaScript, JSON, SVG, atau teks di sini..."
+              placeholder="Tempel atau ketik kode di sini..."
               spellcheck="false"
             ></textarea>
           </div>
 
           <div class="form-grid-2">
-            <!-- Nama Aset -->
             <div class="form-group">
               <label for="input-asset-name">Nama Aset <span class="required">*</span></label>
               <input 
                 type="text" 
                 id="input-asset-name" 
-                placeholder="Contoh: Logo Website Utama" 
+                placeholder="Nama aset" 
                 required
               >
             </div>
 
-            <!-- Kategori -->
             <div class="form-group">
               <label for="select-asset-category">Kategori</label>
               <select id="select-asset-category">
-                <option value="Gambar">Gambar (Image / SVG)</option>
+                <option value="Gambar">Gambar</option>
                 <option value="Video">Video</option>
-                <option value="Script">Script (JavaScript)</option>
-                <option value="CSS">Stylesheet (CSS)</option>
-                <option value="Dokumen">Dokumen / PDF / File</option>
+                <option value="Script">Script</option>
+                <option value="CSS">CSS</option>
+                <option value="Dokumen">Dokumen</option>
                 <option value="Lainnya">Lainnya</option>
               </select>
             </div>
           </div>
 
           <div class="form-grid-2">
-            <!-- Karakter Acak (Random Slug) -->
+            <!-- Random Slug -->
             <div class="form-group">
-              <label for="input-random-slug">
-                Karakter Acak (Random Slug)
-                <span class="label-hint">Unik per aset</span>
-              </label>
+              <label for="input-random-slug">Karakter Acak (Random)</label>
               <div class="slug-input-wrapper">
                 <span class="input-prefix">cdn.ten.my.id/</span>
                 <input 
@@ -264,18 +228,15 @@
               </div>
             </div>
 
-            <!-- Custom Path (Opsional) -->
+            <!-- Custom Path -->
             <div class="form-group">
-              <label for="input-custom-path">
-                Custom Path (Opsional)
-                <span class="label-hint">Sesuai kebutuhan</span>
-              </label>
+              <label for="input-custom-path">Custom Path (Opsional)</label>
               <div class="slug-input-wrapper">
                 <span class="input-prefix">cdn.ten.my.id/</span>
                 <input 
                   type="text" 
                   id="input-custom-path" 
-                  placeholder="misal: brand/logo.png atau css/app.css"
+                  placeholder="misal: logo.png atau css/app.css"
                 >
               </div>
             </div>
@@ -294,12 +255,12 @@
 
 
   <!-- =========================================================================
-       4. MODAL: EDIT ASSET
+       4. MODAL: EDIT ASET
        ========================================================================= -->
   <div id="modal-edit" class="modal-overlay" style="display: none;">
     <div class="modal-box">
       <div class="modal-header">
-        <h2 class="modal-title">Edit Detail Aset</h2>
+        <h2 class="modal-title">Edit Aset</h2>
         <button type="button" class="btn-close-modal" id="btn-close-edit-modal">&times;</button>
       </div>
 
@@ -345,60 +306,53 @@
 
 
   <!-- =========================================================================
-       5. MODAL: PREVIEW ASSET & EMBED CODE
+       5. MODAL: PREVIEW ASET
        ========================================================================= -->
   <div id="modal-preview" class="modal-overlay" style="display: none;">
     <div class="modal-box modal-lg">
       <div class="modal-header">
         <div class="preview-header-info">
-          <h2 class="modal-title" id="preview-title">Detail Aset</h2>
+          <h2 class="modal-title" id="preview-title">Preview Aset</h2>
           <span class="category-tag" id="preview-category-tag">Gambar</span>
         </div>
         <button type="button" class="btn-close-modal" id="btn-close-preview-modal">&times;</button>
       </div>
 
       <div class="modal-body">
-        <!-- Media Visual / Viewer Box -->
-        <div class="preview-media-box" id="preview-media-container">
-          <!-- Rendered dynamically (img, video, iframe, pre/code) -->
-        </div>
+        <div class="preview-media-box" id="preview-media-container"></div>
 
-        <!-- Quick Copy Links Section -->
         <div class="preview-links-grid">
           <div class="link-item">
-            <label>URL Acak Langsung:</label>
+            <label>URL Acak:</label>
             <div class="copy-input-group">
               <input type="text" id="preview-random-url" readonly>
               <button class="btn btn-secondary btn-sm btn-copy" data-target="preview-random-url">Salin</button>
-              <a id="preview-open-random" href="#" target="_blank" class="btn btn-secondary btn-sm" title="Buka di tab baru">↗ Buka</a>
+              <a id="preview-open-random" href="#" target="_blank" class="btn btn-secondary btn-sm">Buka ↗</a>
             </div>
           </div>
 
           <div class="link-item" id="preview-custom-url-group">
-            <label>URL Custom Path:</label>
+            <label>URL Custom:</label>
             <div class="copy-input-group">
               <input type="text" id="preview-custom-url" readonly>
               <button class="btn btn-secondary btn-sm btn-copy" data-target="preview-custom-url">Salin</button>
-              <a id="preview-open-custom" href="#" target="_blank" class="btn btn-secondary btn-sm" title="Buka di tab baru">↗ Buka</a>
+              <a id="preview-open-custom" href="#" target="_blank" class="btn btn-secondary btn-sm">Buka ↗</a>
             </div>
           </div>
         </div>
 
-        <!-- HTML Snippet Embeds -->
         <div class="snippet-embed-box">
-          <label>Kode Integrasi HTML:</label>
+          <label>Kode Embed HTML:</label>
           <div class="copy-input-group">
             <input type="text" id="preview-embed-snippet" readonly>
-            <button class="btn btn-primary btn-sm btn-copy" data-target="preview-embed-snippet">Salin Tag HTML</button>
+            <button class="btn btn-primary btn-sm btn-copy" data-target="preview-embed-snippet">Salin Kode</button>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-
-  <!-- Toast Notification -->
-  <div id="toast" class="toast">URL berhasil disalin!</div>
+  <div id="toast" class="toast">Tautan berhasil disalin!</div>
 
   <script src="/portal/js/portal.js"></script>
 </body>

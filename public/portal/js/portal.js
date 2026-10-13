@@ -34,9 +34,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const userEmailDisplay = document.getElementById('user-email-display');
 
   // Elements - Admin Dashboard
-  const statTotalAssets = document.getElementById('stat-total-assets');
-  const statTotalCategories = document.getElementById('stat-total-categories');
-  const statTotalSize = document.getElementById('stat-total-size');
   const inputSearch = document.getElementById('input-search');
   const categoryFilterList = document.getElementById('category-filter-list');
   const assetsTableBody = document.getElementById('assets-table-body');
@@ -210,15 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderDashboard() {
-    // 1. Update Stats
-    statTotalAssets.textContent = state.assets.length;
-    const categoriesSet = new Set(state.assets.map(a => a.category).filter(Boolean));
-    statTotalCategories.textContent = categoriesSet.size;
-
-    const totalBytes = state.assets.reduce((sum, a) => sum + (a.sizeBytes || 0), 0);
-    statTotalSize.textContent = formatBytes(totalBytes);
-
-    // 2. Filter & Search
+    // 1. Filter & Search
     const filtered = state.assets.filter(item => {
       const matchCat = state.filterCategory === 'ALL' || item.category === state.filterCategory;
       if (!matchCat) return false;
