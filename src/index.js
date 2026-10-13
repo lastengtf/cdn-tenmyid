@@ -135,19 +135,27 @@ export default {
       return new Response('CDN TEN UI', { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
     }
 
-    // 5. CDN File Serving: cdn.ten.my.id/<random_slug> or cdn.ten.my.id/<custom_path>
+    // 5. Static Portal Assets (/portal/*, /favicon.svg, /assets/*)
+    if (pathname.startsWith('/portal/') || pathname === '/favicon.svg' || pathname.startsWith('/assets/')) {
+      if (env.ASSETS) {
+        const assetRes = await env.ASSETS.fetch(request);
+        if (assetRes.status !== 404) {
+          return assetRes;
+        }
+      }
+    }
+
+    // 6. CDN File Serving: cdn.ten.my.id/<random_slug> or cdn.ten.my.id/<custom_path>
     const cdnResponse = await handleServeCdnAsset(cleanPath, request, env);
     if (cdnResponse) {
       return cdnResponse;
     }
 
-    // 6. Static Portal Assets fallback (CSS, JS, favicon from ./public)
+    // 7. Fallback to ASSETS if any
     if (env.ASSETS) {
       const assetResponse = await env.ASSETS.fetch(request);
       if (assetResponse.status !== 404) {
-        const response = new Response(assetResponse.body, assetResponse);
-        response.headers.set('Access-Control-Allow-Origin', '*');
-        return response;
+        return assetResponse;
       }
     }
 
