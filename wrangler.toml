@@ -12,10 +12,8 @@ compatibility_date = "2024-09-23"
 directory = "./public"
 binding = "ASSETS"
 
-# Environment Variables (Dapat disesuaikan atau dioverride di Dashboard Cloudflare)
-[vars]
-ADMIN_EMAIL = "admin@ten.my.id"
-ADMIN_PASSWORD = "password123"
+# Environment Variables diatur sepenuhnya di Dashboard Cloudflare (Settings -> Variables and Secrets)
+# Untuk pengujian lokal dapat disimpan di file .dev.vars (sudah diabaikan oleh git)
 
 # ==============================================================================
 # Cloudflare KV Namespace Binding

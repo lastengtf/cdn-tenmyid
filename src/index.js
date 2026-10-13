@@ -201,8 +201,9 @@ async function handleLogin(request, env) {
     const email = (body.email || '').trim().toLowerCase();
     const password = (body.password || '').trim();
 
-    const expectedEmail = (env.ADMIN_EMAIL || 'admin@ten.my.id').trim().toLowerCase();
-    const expectedPassword = (env.ADMIN_PASSWORD || 'password123').trim();
+    // Kredensial dibaca dari Cloudflare Dashboard (Variables and Secrets)
+    const expectedEmail = (env.ADMIN_EMAIL || env.admin_email || env.EMAIL || env.email || 'admin@ten.my.id').trim().toLowerCase();
+    const expectedPassword = (env.ADMIN_PASSWORD || env.admin_password || env.PASSWORD || env.password || 'password123').trim();
 
     if (email === expectedEmail && password === expectedPassword) {
       const token = crypto.randomUUID();
