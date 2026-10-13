@@ -1,11 +1,11 @@
 /**
- * CDN TEN - Portal Interactive Controller
+ * CDN TEN - Portal Interactive Controller with Cloudflare KV Support
  * Domain: cdn.ten.my.id
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Asset Registry Catalog
-  const assets = [
+  // Default Seed Assets (Fallback if KV not yet populated)
+  let assets = [
     {
       id: 'logo-light',
       name: 'Logo TEN (Light Mode)',
@@ -15,7 +15,8 @@ document.addEventListener('DOMContentLoaded', () => {
       path: '/assets/brand/logo-ten.svg',
       desc: 'Logo resmi TEN-MY-ID untuk latar belakang terang / putih.',
       previewable: true,
-      previewType: 'image'
+      previewType: 'image',
+      source: 'static'
     },
     {
       id: 'logo-dark',
@@ -26,7 +27,8 @@ document.addEventListener('DOMContentLoaded', () => {
       path: '/assets/brand/logo-ten-dark.svg',
       desc: 'Logo resmi TEN-MY-ID untuk latar belakang gelap / malam.',
       previewable: true,
-      previewType: 'image'
+      previewType: 'image',
+      source: 'static'
     },
     {
       id: 'favicon-svg',
@@ -37,7 +39,8 @@ document.addEventListener('DOMContentLoaded', () => {
       path: '/favicon.svg',
       desc: 'Ikon kotak favicon TEN resolusi tajam berbasis SVG.',
       previewable: true,
-      previewType: 'image'
+      previewType: 'image',
+      source: 'static'
     },
     {
       id: 'core-css',
@@ -48,7 +51,8 @@ document.addEventListener('DOMContentLoaded', () => {
       path: '/assets/css/ten-core.css',
       desc: 'Shared utility styling, reset modern, buttons, dan glassmorphism card.',
       previewable: true,
-      previewType: 'code'
+      previewType: 'code',
+      source: 'static'
     },
     {
       id: 'core-css-v1',
@@ -59,7 +63,8 @@ document.addEventListener('DOMContentLoaded', () => {
       path: '/v1/css/ten-core.css',
       desc: 'Versi tetap immutable v1 untuk kompatibilitas jangka panjang tanpa cache buster.',
       previewable: true,
-      previewType: 'code'
+      previewType: 'code',
+      source: 'static'
     },
     {
       id: 'utils-js',
@@ -70,7 +75,8 @@ document.addEventListener('DOMContentLoaded', () => {
       path: '/assets/js/ten-utils.js',
       desc: 'Library utility ringan: copy to clipboard, toast alert, format bytes, CDN URL resolver.',
       previewable: true,
-      previewType: 'code'
+      previewType: 'code',
+      source: 'static'
     },
     {
       id: 'utils-js-v1',
@@ -81,7 +87,8 @@ document.addEventListener('DOMContentLoaded', () => {
       path: '/v1/js/ten-utils.js',
       desc: 'Versi tetap immutable v1 untuk script JavaScript eksternal.',
       previewable: true,
-      previewType: 'code'
+      previewType: 'code',
+      source: 'static'
     }
   ];
 
@@ -89,6 +96,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const assetsContainer = document.getElementById('assets-grid');
   const searchInput = document.getElementById('search-input');
   const filterChips = document.querySelectorAll('.filter-chip');
+  
+  // Snippet Modal Elements
   const modal = document.getElementById('snippet-modal');
   const modalCloseBtn = document.getElementById('modal-close-btn');
   const modalTitle = document.getElementById('modal-title');
@@ -98,22 +107,59 @@ document.addEventListener('DOMContentLoaded', () => {
   const copyModalBtn = document.getElementById('copy-modal-btn');
   const latencyBadge = document.getElementById('edge-latency');
 
+  // Upload Modal Elements
+  const uploadModal = document.getElementById('upload-modal');
+  const btnOpenUpload = document.getElementById('btn-open-upload-modal');
+  const uploadCloseBtn = document.getElementById('upload-close-btn');
+  const uploadCancelBtn = document.getElementById('upload-cancel-btn');
+  const uploadForm = document.getElementById('upload-form');
+  const radioTypeText = document.getElementById('radio-type-text');
+  const radioTypeFile = document.getElementById('radio-type-file');
+  const groupContentText = document.getElementById('group-content-text');
+  const groupContentFile = document.getElementById('group-content-file');
+  const inputAssetName = document.getElementById('input-asset-name');
+  const inputAssetSlug = document.getElementById('input-asset-slug');
+
   let currentCategory = 'all';
   let searchQuery = '';
   let activeAsset = null;
-  let activeFormat = 'url'; // 'url' | 'html' | 'md' | 'css'
+  let activeFormat = 'url';
 
-  // Measure initial edge latency
-  if (latencyBadge) {
-    const t0 = performance.now();
-    fetch('/favicon.svg', { method: 'HEAD', cache: 'no-cache' })
-      .then(() => {
-        const ping = Math.round(performance.now() - t0);
-        latencyBadge.textContent = `${ping} ms (Edge OK)`;
-      })
-      .catch(() => {
-        latencyBadge.textContent = '< 20 ms (Global Anycast)';
-      });
+  // Measure Edge Latency & Fetch dynamic KV assets
+  async function init() {
+    if (latencyBadge) {
+      const t0 = performance.now();
+      fetch('/favicon.svg', { method: 'HEAD', cache: 'no-cache' })
+        .then(() => {
+          const ping = Math.round(performance.now() - t0);
+          latencyBadge.textContent = `${ping} ms (Cloudflare Edge)`;
+        })
+        .catch(() => {
+          latencyBadge.textContent = '< 20 ms (Global Anycast)';
+        });
+    }
+
+    // Fetch dynamic assets from Cloudflare KV API
+    await fetchAssetsFromKV();
+  }
+
+  // Fetch Assets from KV Endpoint (/api/assets)
+  async function fetchAssetsFromKV() {
+    try {
+      const res = await fetch('/api/assets');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          assets = json.data;
+          console.log(`[CDN TEN] Berhasil memuat ${assets.length} aset dari database KV.`);
+        }
+      }
+    } catch (err) {
+      console.warn('[CDN TEN] Berjalan dengan fallback static catalog:', err);
+    } finally {
+      updateCounts();
+      renderAssets();
+    }
   }
 
   // Update Category Counts
@@ -121,23 +167,28 @@ document.addEventListener('DOMContentLoaded', () => {
     filterChips.forEach(chip => {
       const cat = chip.dataset.category;
       const countEl = chip.querySelector('.chip-count');
-      if (cat === 'all') {
-        countEl.textContent = assets.length;
-      } else {
-        const c = assets.filter(a => a.category === cat).length;
-        countEl.textContent = c;
+      if (countEl) {
+        if (cat === 'all') {
+          countEl.textContent = assets.length;
+        } else {
+          const c = assets.filter(a => a.category === cat).length;
+          countEl.textContent = c;
+        }
       }
     });
   }
 
   // Render Asset Cards
   function renderAssets() {
+    if (!assetsContainer) return;
+
     const filtered = assets.filter(asset => {
       const matchCat = currentCategory === 'all' || asset.category === currentCategory;
       const matchSearch = 
-        asset.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        asset.path.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        asset.desc.toLowerCase().includes(searchQuery.toLowerCase());
+        (asset.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (asset.path || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (asset.desc || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (asset.slug || '').toLowerCase().includes(searchQuery.toLowerCase());
       return matchCat && matchSearch;
     });
 
@@ -145,7 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
       assetsContainer.innerHTML = `
         <div class="empty-state glass-panel">
           <p style="font-size: 1.5rem; margin-bottom: 0.5rem;">🔍 Aset Tidak Ditemukan</p>
-          <p style="color: var(--text-dim); font-size: 0.9rem;">Tidak ada file aset yang sesuai dengan kata kunci "<strong>${escapeHtml(searchQuery)}</strong>"</p>
+          <p style="color: var(--text-dim); font-size: 0.9rem;">Tidak ada file aset yang sesuai dengan kriteria "<strong>${escapeHtml(searchQuery)}</strong>"</p>
         </div>
       `;
       return;
@@ -157,17 +208,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     assetsContainer.innerHTML = filtered.map(asset => {
       const fullUrl = `${host}${asset.path}`;
+      const isKv = asset.source === 'kv' || (asset.path && asset.path.startsWith('/raw/'));
+
       return `
         <div class="asset-card glass-panel" data-id="${asset.id}">
           <div>
             <div class="asset-header">
-              <span class="asset-type-badge badge-${asset.category}">
-                ${asset.type}
-              </span>
-              <span class="asset-size">${asset.size}</span>
+              <div style="display: flex; gap: 0.4rem; align-items: center;">
+                <span class="asset-type-badge badge-${asset.category || 'code'}">
+                  ${asset.type || 'file'}
+                </span>
+                ${isKv ? '<span class="badge-kv" title="Tersimpan langsung di Cloudflare KV">KV STORE</span>' : ''}
+              </div>
+              <span class="asset-size">${asset.size || '-'}</span>
             </div>
             <h3 class="asset-name">${escapeHtml(asset.name)}</h3>
-            <p class="asset-desc">${escapeHtml(asset.desc)}</p>
+            <p class="asset-desc">${escapeHtml(asset.desc || '')}</p>
             <div class="asset-path-box" title="${fullUrl}">
               <span>${asset.path}</span>
             </div>
@@ -200,12 +256,12 @@ document.addEventListener('DOMContentLoaded', () => {
           return `<link rel="stylesheet" href="${url}">`;
         } else if (asset.type === 'js') {
           return `<script src="${url}"></script>`;
-        } else if (asset.type === 'svg' || asset.type === 'webp' || asset.type === 'png' || asset.type === 'jpg') {
+        } else if (['svg', 'webp', 'png', 'jpg', 'jpeg'].includes(asset.type)) {
           return `<img src="${url}" alt="${escapeHtml(asset.name)}" loading="lazy">`;
         }
         return `<a href="${url}" target="_blank">${escapeHtml(asset.name)}</a>`;
       case 'md':
-        if (asset.type === 'svg' || asset.type === 'webp' || asset.type === 'png' || asset.type === 'jpg') {
+        if (['svg', 'webp', 'png', 'jpg', 'jpeg'].includes(asset.type)) {
           return `![${asset.name}](${url})`;
         }
         return `[${asset.name}](${url})`;
@@ -226,13 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
     activeAsset = asset;
     modalTitle.textContent = asset.name;
 
-    // Render Preview
-    const host = window.location.origin.includes('localhost') || window.location.origin.includes('file://')
-      ? 'https://cdn.ten.my.id'
-      : window.location.origin;
-    const url = `${host}${asset.path}`;
-
-    if (asset.previewType === 'image') {
+    if (asset.previewType === 'image' || ['svg', 'png', 'webp', 'jpg'].includes(asset.type)) {
       modalPreviewBox.style.display = 'flex';
       modalPreviewBox.innerHTML = `<img src="${asset.path}" alt="${asset.name}" class="modal-preview-img" onerror="this.src='/favicon.svg'">`;
     } else {
@@ -243,22 +293,19 @@ document.addEventListener('DOMContentLoaded', () => {
     modal.classList.add('open');
   };
 
-  // Update Snippet View inside modal
   function updateSnippetView() {
     if (!activeAsset) return;
     const code = generateSnippet(activeAsset, activeFormat);
     snippetCode.textContent = code;
   }
 
-  // Direct Copy Helper
   window.copyDirectUrl = async function(url) {
     const success = await copyText(url);
     if (success) {
-      notify('Tautan berhasil disalin ke clipboard!', 'success');
+      notify('Tautan aset CDN berhasil disalin!', 'success');
     }
   };
 
-  // Copy inside modal
   if (copyModalBtn) {
     copyModalBtn.addEventListener('click', async () => {
       if (!snippetCode) return;
@@ -274,7 +321,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Snippet Tab switching
   snippetTabs.forEach(tab => {
     tab.addEventListener('click', () => {
       snippetTabs.forEach(t => t.classList.remove('active'));
@@ -284,22 +330,141 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Modal Close
-  function closeModal() {
+  // Modal Closures
+  function closeSnippetModal() {
     modal.classList.remove('open');
   }
-
-  if (modalCloseBtn) modalCloseBtn.addEventListener('click', closeModal);
+  if (modalCloseBtn) modalCloseBtn.addEventListener('click', closeSnippetModal);
   if (modal) {
     modal.addEventListener('click', (e) => {
-      if (e.target === modal) closeModal();
+      if (e.target === modal) closeSnippetModal();
     });
   }
+
+  // Upload Modal Controllers
+  function openUploadModal() {
+    if (uploadModal) uploadModal.classList.add('open');
+  }
+  function closeUploadModal() {
+    if (uploadModal) uploadModal.classList.remove('open');
+  }
+  if (btnOpenUpload) btnOpenUpload.addEventListener('click', openUploadModal);
+  if (uploadCloseBtn) uploadCloseBtn.addEventListener('click', closeUploadModal);
+  if (uploadCancelBtn) uploadCancelBtn.addEventListener('click', closeUploadModal);
+  if (uploadModal) {
+    uploadModal.addEventListener('click', (e) => {
+      if (e.target === uploadModal) closeUploadModal();
+    });
+  }
+
+  // Toggle Input Type (Text vs File)
+  if (radioTypeText && radioTypeFile) {
+    radioTypeText.addEventListener('change', () => {
+      if (radioTypeText.checked) {
+        groupContentText.style.display = 'block';
+        groupContentFile.style.display = 'none';
+      }
+    });
+    radioTypeFile.addEventListener('change', () => {
+      if (radioTypeFile.checked) {
+        groupContentText.style.display = 'none';
+        groupContentFile.style.display = 'block';
+      }
+    });
+  }
+
+  // Auto infer slug from name
+  if (inputAssetName && inputAssetSlug) {
+    inputAssetName.addEventListener('input', () => {
+      if (!inputAssetSlug.dataset.manual) {
+        const val = inputAssetName.value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        const cat = document.getElementById('select-asset-category').value;
+        const ext = cat === 'css' ? '.css' : (cat === 'js' ? '.js' : '');
+        inputAssetSlug.value = `${cat}/${val}${ext}`;
+      }
+    });
+    inputAssetSlug.addEventListener('input', () => {
+      inputAssetSlug.dataset.manual = 'true';
+    });
+  }
+
+  // Upload Form Submission to Cloudflare KV
+  if (uploadForm) {
+    uploadForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const submitBtn = document.getElementById('upload-submit-btn');
+      const apiKey = document.getElementById('input-api-key').value;
+      const isFile = radioTypeFile && radioTypeFile.checked;
+
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span>Menyimpan ke KV...</span>';
+
+      try {
+        let response;
+        if (isFile) {
+          const fileInput = document.getElementById('input-file');
+          if (!fileInput.files || fileInput.files.length === 0) {
+            throw new Error('Pilih berkas yang ingin diupload.');
+          }
+          const formData = new FormData();
+          formData.append('name', inputAssetName.value);
+          formData.append('category', document.getElementById('select-asset-category').value);
+          formData.append('slug', inputAssetSlug.value);
+          formData.append('desc', document.getElementById('input-asset-desc').value);
+          formData.append('file', fileInput.files[0]);
+
+          response = await fetch('/api/assets', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${apiKey}` },
+            body: formData
+          });
+        } else {
+          const payload = {
+            name: inputAssetName.value,
+            category: document.getElementById('select-asset-category').value,
+            slug: inputAssetSlug.value,
+            desc: document.getElementById('input-asset-desc').value,
+            content: document.getElementById('textarea-content').value
+          };
+
+          response = await fetch('/api/assets', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify(payload)
+          });
+        }
+
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || 'Gagal menyimpan ke KV');
+        }
+
+        notify('Aset berhasil disimpan ke database Cloudflare KV!', 'success');
+        uploadForm.reset();
+        delete inputAssetSlug.dataset.manual;
+        closeUploadModal();
+        await fetchAssetsFromKV();
+
+      } catch (err) {
+        notify(`Error: ${err.message}`, 'error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span>Simpan ke KV</span>';
+      }
+    });
+  }
+
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && modal.classList.contains('open')) closeModal();
+    if (e.key === 'Escape') {
+      closeSnippetModal();
+      closeUploadModal();
+    }
   });
 
-  // Category Filter clicks
+  // Filter Chips
   filterChips.forEach(chip => {
     chip.addEventListener('click', () => {
       filterChips.forEach(c => c.classList.remove('active'));
@@ -309,7 +474,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Search input handler
+  // Search input
   if (searchInput) {
     searchInput.addEventListener('input', (e) => {
       searchQuery = e.target.value.trim();
@@ -317,7 +482,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Helper: copy to clipboard
   async function copyText(text) {
     if (window.TEN && window.TEN.copyToClipboard) {
       return await window.TEN.copyToClipboard(text);
@@ -330,7 +494,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Helper: Toast notify
   function notify(msg, type = 'success') {
     if (window.TEN && window.TEN.showToast) {
       window.TEN.showToast(msg, type);
@@ -339,9 +502,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Helper: Escape HTML
   function escapeHtml(str) {
-    return str
+    return (str || '')
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
@@ -349,7 +511,6 @@ document.addEventListener('DOMContentLoaded', () => {
       .replace(/'/g, '&#039;');
   }
 
-  // Initial Boot
-  updateCounts();
-  renderAssets();
+  // Boot
+  init();
 });

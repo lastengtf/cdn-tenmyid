@@ -1,0 +1,19 @@
+# ===================================================
+# Cloudflare Pages & KV Configuration (wrangler.toml)
+# Domain: cdn.ten.my.id
+# ===================================================
+
+name = "cdn-tenmyid"
+compatibility_date = "2024-09-23"
+pages_build_output_dir = "public"
+
+# Cloudflare KV Namespace Binding
+# Dashboard: Settings > Functions > KV namespace bindings
+# Variable Name: CDN_KV
+[[kv_namespaces]]
+binding = "CDN_KV"
+id = "CDN_KV_NAMESPACE_ID" # Ganti dengan KV Namespace ID dari Cloudflare Dashboard
+
+# Environment Variables
+[vars]
+ADMIN_API_KEY = "ten-cdn-secret-key" # Ganti dengan API key rahasia Anda

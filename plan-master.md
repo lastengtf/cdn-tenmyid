@@ -14,7 +14,36 @@ Dokumen ini merupakan panduan strategis dan teknis menyeluruh (Master Plan) untu
 | **Jenis Aset** | Gambar (SVG, WebP, PNG, JPG), Video/Audio, Stylesheet (CSS), Script (JS), Web Fonts (WOFF2), Dokumen publik |
 | **Target Pengguna** | Ekosistem internal web TEN-MY-ID, aplikasi web mitra, serta publik |
 | **Platform Hosting** | Cloudflare Pages / Cloudflare Edge Network |
+| **Database** | Cloudflare Workers KV (`CDN_KV`) |
+| **Serverless API Engine** | Cloudflare Pages Functions (`functions/api/*`, `functions/raw/*`, `functions/s/*`) |
 | **Version Control & CI/CD** | GitHub: `https://github.com/lastengtf/cdn-tenmyid` -> Auto-deploy via Cloudflare Pages |
+
+---
+
+## 2. Arsitektur Cloudflare KV Database
+
+Platform CDN TEN menggunakan **Cloudflare Workers KV** sebagai database terdistribusi edge untuk menyimpan seluruh data katalog dan berkas aset:
+
+### 2.1. Skema Penyimpanan KV (Key-Value Schema):
+1. **Metadata Aset (`asset:meta:<id>`)**:
+   - Format: JSON Object
+   - Field: `id`, `name`, `slug`, `category`, `type`, `mimeType`, `size`, `path`, `desc`, `previewable`, `previewType`, `source`, `createdAt`
+2. **Konten Berkas Teks (`asset:content:txt:<id>`)**:
+   - Menyimpan kode teks mentah (CSS, JavaScript, SVG, JSON, HTML).
+3. **Konten Berkas Biner (`asset:content:b64:<id>`)**:
+   - Menyimpan berkas biner/gambar terenkode Base64 (PNG, WebP, Font WOFF2, dll.).
+4. **Pemetaan Slug URL (`slug:<slug>`)**:
+   - Memetakan path slug (misal: `css/button.css`) ke `id` aset di KV.
+5. **Shortlink & Hit Counter (`shortlink:<short>`, `stats:hits:<id>`)**:
+   - Menyimpan URL tujuan redirect dan metrik statistik akses.
+
+### 2.2. Endpoint Cloudflare Pages Functions:
+- **`GET /api/assets`**: Mengambil daftar seluruh aset dari KV untuk katalog portal interaktif (dengan fallback ke aset bawaan jika KV belum diisi).
+- **`POST /api/assets`**: Menyimpan aset baru (metadata + konten teks/file) ke dalam KV (diamankan dengan API Key).
+- **`GET /api/assets/:id`**: Mengambil detail metadata 1 aset.
+- **`DELETE /api/assets/:id`**: Menghapus aset dari KV (diamankan dengan API Key).
+- **`GET /raw/*`**: Menyajikan berkas mentah langsung dari KV dengan header `Content-Type` yang tepat, `Access-Control-Allow-Origin: *`, dan caching edge.
+- **`GET /s/:short`**: Layanan tautan pendek dan auto-redirect.
 
 ---
 
