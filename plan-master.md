@@ -48,9 +48,9 @@ Rencana implementasi dibagi menjadi 6 tahap terstruktur:
 - [x] Memastikan fitur copy snippet menghasilkan URL yang tepat sesuai format `cdn.ten.my.id`.
 
 ### Tahap 6: Deployment ke GitHub & Konfigurasi Cloudflare
-- [ ] Inisialisasi Git dan commit seluruh file proyek.
-- [ ] Menghubungkan remote repository `https://github.com/lastengtf/cdn-tenmyid`.
-- [ ] Push ke branch `main` GitHub repository.
+- [x] Inisialisasi Git dan commit seluruh file proyek.
+- [x] Menghubungkan remote repository `https://github.com/lastengtf/cdn-tenmyid`.
+- [x] Push ke branch `main` GitHub repository (Selesai).
 - [ ] Hubungkan repositori ke **Cloudflare Pages** (Build output: `public`).
 - [ ] Pasang custom domain `cdn.ten.my.id`.
 
