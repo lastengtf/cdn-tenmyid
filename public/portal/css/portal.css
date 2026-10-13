@@ -881,3 +881,192 @@ textarea {
   opacity: 1;
   transform: translateY(0);
 }
+
+/* =========================================================================
+   Responsive Mobile Optimization (max-width: 768px & max-width: 480px)
+   ========================================================================= */
+@media (max-width: 768px) {
+  /* Layout & Container */
+  .app-container {
+    padding: 12px 10px;
+  }
+  
+  /* Header */
+  .app-header {
+    height: 52px;
+  }
+  .header-inner {
+    padding: 0 12px;
+    height: 52px;
+  }
+  .brand-name {
+    font-size: 14px;
+  }
+  .domain-pill {
+    display: none;
+  }
+  .admin-user-tag {
+    display: none;
+  }
+  .header-actions {
+    gap: 6px;
+  }
+  .header-actions .btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+  #btn-logout span {
+    display: none;
+  }
+  #btn-logout {
+    padding: 6px 8px;
+  }
+
+  /* Search & Category Filter */
+  .dashboard-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .search-box {
+    max-width: 100%;
+    width: 100%;
+  }
+  .categories-bar {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+    gap: 6px;
+    scrollbar-width: none;
+  }
+  .categories-bar::-webkit-scrollbar {
+    display: none;
+  }
+  .cat-pill {
+    flex-shrink: 0;
+    padding: 5px 12px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  /* Table Container */
+  .asset-list-card {
+    border-radius: var(--radius-md);
+  }
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    position: relative;
+  }
+  .asset-table th {
+    padding: 8px 10px;
+    font-size: 10px;
+    white-space: nowrap;
+  }
+  .asset-table td {
+    padding: 9px 10px;
+    font-size: 12px;
+  }
+  .cell-asset-info {
+    min-width: 130px;
+  }
+  .cell-thumb {
+    width: 28px;
+    height: 28px;
+  }
+  .cell-title {
+    font-size: 12px;
+  }
+  .cell-sub {
+    font-size: 10px;
+  }
+  .url-chip {
+    max-width: 120px;
+    padding: 2px 4px 2px 6px;
+  }
+  .url-chip-path {
+    font-size: 10px;
+  }
+  .btn-chip-action {
+    padding: 3px;
+  }
+  .cell-actions-row {
+    gap: 2px;
+  }
+  .btn-icon-only {
+    width: 28px;
+    height: 28px;
+  }
+
+  /* Modals */
+  .modal-overlay {
+    padding: 12px 8px;
+  }
+  .modal-box {
+    width: 100%;
+    max-width: 100%;
+    max-height: 90vh;
+    border-radius: var(--radius-lg);
+  }
+  .modal-head {
+    padding: 12px 14px;
+  }
+  .modal-title {
+    font-size: 14px;
+  }
+  .modal-content {
+    padding: 14px;
+  }
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .dropzone {
+    padding: 18px 12px;
+  }
+  .dropzone-title {
+    font-size: 12px;
+  }
+  .url-box-prefix {
+    padding: 0 8px;
+    font-size: 11px;
+  }
+  .modal-foot {
+    margin-top: 14px;
+    padding-top: 12px;
+  }
+
+  /* Preview Stage */
+  .preview-stage {
+    padding: 10px;
+    min-height: 120px;
+  }
+  .preview-stage img,
+  .preview-stage video,
+  .preview-stage pre {
+    max-height: 220px;
+  }
+
+  /* Login Card */
+  .login-wrapper {
+    padding: 16px;
+  }
+  .login-card {
+    padding: 24px 18px;
+    width: 100%;
+    max-width: 360px;
+  }
+
+  /* Toast Notification */
+  .toast {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    text-align: center;
+    font-size: 12px;
+  }
+}
+
