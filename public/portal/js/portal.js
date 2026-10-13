@@ -166,7 +166,12 @@ document.addEventListener('DOMContentLoaded', () => {
     btnTogglePassword.addEventListener('click', () => {
       const isPass = inputPassword.type === 'password';
       inputPassword.type = isPass ? 'text' : 'password';
-      btnTogglePassword.textContent = isPass ? '🙈' : '👁️';
+      const eyeShow = btnTogglePassword.querySelector('.icon-eye-show');
+      const eyeHide = btnTogglePassword.querySelector('.icon-eye-hide');
+      if (eyeShow && eyeHide) {
+        eyeShow.style.display = isPass ? 'none' : 'block';
+        eyeHide.style.display = isPass ? 'block' : 'none';
+      }
     });
   }
 
@@ -220,7 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return name.includes(q) || slug.includes(q) || custom.includes(q);
     });
 
-    // 3. Render Table
+    // 2. Render Table
     if (filtered.length === 0) {
       assetsTableBody.innerHTML = '';
       assetsEmptyState.style.display = 'flex';
@@ -235,48 +240,61 @@ document.addEventListener('DOMContentLoaded', () => {
       return `
         <tr data-id="${item.id}">
           <td>
-            <div class="asset-item-info">
-              <div class="asset-thumb-icon">
+            <div class="cell-asset-info">
+              <div class="cell-thumb">
                 ${getAssetThumbnail(item)}
               </div>
-              <div>
-                <div class="asset-meta-title">${escapeHtml(item.name)}</div>
-                <div class="asset-meta-filename">${escapeHtml(item.fileName || item.id)}</div>
+              <div style="min-width: 0;">
+                <div class="cell-title">${escapeHtml(item.name)}</div>
+                <div class="cell-sub">${escapeHtml(item.fileName || item.id)}</div>
               </div>
             </div>
           </td>
           <td>
-            <span class="category-tag">${escapeHtml(item.category || 'Lainnya')}</span>
+            <span class="badge-cat">${escapeHtml(item.category || 'Lainnya')}</span>
           </td>
           <td>
-            <div class="url-badge-group">
-              <a href="/${item.randomSlug}" target="_blank" class="url-badge-link" title="${randomUrl}">
-                /${item.randomSlug}
-              </a>
-              <button class="btn-copy-mini" onclick="copyText('${randomUrl}')" title="Salin URL Acak">Salin</button>
+            <div class="url-chip">
+              <span class="url-chip-path">/${item.randomSlug}</span>
+              <div class="url-chip-actions">
+                <button class="btn-chip-action" onclick="copyText('${randomUrl}')" title="Salin URL Acak">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                </button>
+                <a href="/${item.randomSlug}" target="_blank" class="btn-chip-action" title="Buka di tab baru">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                </a>
+              </div>
             </div>
           </td>
           <td>
             ${item.customPath ? `
-              <div class="url-badge-group">
-                <a href="/${item.customPath}" target="_blank" class="url-badge-link" title="${customUrl}">
-                  /${escapeHtml(item.customPath)}
-                </a>
-                <button class="btn-copy-mini" onclick="copyText('${customUrl}')" title="Salin Custom Path">Salin</button>
+              <div class="url-chip">
+                <span class="url-chip-path">/${escapeHtml(item.customPath)}</span>
+                <div class="url-chip-actions">
+                  <button class="btn-chip-action" onclick="copyText('${customUrl}')" title="Salin Custom Path">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                  </button>
+                  <a href="/${item.customPath}" target="_blank" class="btn-chip-action" title="Buka di tab baru">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                  </a>
+                </div>
               </div>
-            ` : '<span style="color: var(--text-dim); font-size: 11px;">-</span>'}
+            ` : '<span style="color: var(--text-dim); font-size: 11px;">—</span>'}
           </td>
-          <td style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);">
+          <td style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); white-space: nowrap;">
             ${item.sizeFormatted || formatBytes(item.sizeBytes || 0)}
           </td>
-          <td style="font-size: 11px; color: var(--text-dim);">
-            ${formatDate(item.createdAt)}
-          </td>
           <td class="text-right">
-            <div class="row-actions">
-              <button class="btn btn-secondary btn-sm" onclick="openPreviewModal('${item.id}')" title="Lihat Preview">👁️</button>
-              <button class="btn btn-secondary btn-sm" onclick="openEditModal('${item.id}')" title="Ubah Metadata">✏️</button>
-              <button class="btn btn-danger btn-sm" onclick="deleteAsset('${item.id}', '${escapeHtml(item.name)}')" title="Hapus Aset">🗑️</button>
+            <div class="cell-actions-row">
+              <button class="btn-icon-only" onclick="openPreviewModal('${item.id}')" title="Preview Aset">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              </button>
+              <button class="btn-icon-only" onclick="openEditModal('${item.id}')" title="Edit Metadata">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+              </button>
+              <button class="btn-icon-only btn-delete" onclick="deleteAsset('${item.id}', '${escapeHtml(item.name)}')" title="Hapus Aset">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+              </button>
             </div>
           </td>
         </tr>
@@ -289,12 +307,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (isImage) {
       return `<img src="/${item.randomSlug}" alt="" loading="lazy">`;
     }
-    if ((item.mimeType || '').startsWith('video/')) return '🎬';
-    if (item.category === 'CSS' || item.extension === 'css') return '🎨';
-    if (item.category === 'Script' || ['js', 'mjs', 'ts'].includes(item.extension)) return '⚡';
-    if (item.extension === 'pdf') return '📄';
-    if (['zip', 'gz', 'tar'].includes(item.extension)) return '📦';
-    return '📄';
+    if ((item.mimeType || '').startsWith('video/')) {
+      return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>`;
+    }
+    if (item.category === 'CSS' || item.extension === 'css') {
+      return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M8 12h8"></path></svg>`;
+    }
+    if (item.category === 'Script' || ['js', 'mjs', 'ts'].includes(item.extension)) {
+      return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>`;
+    }
+    return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>`;
   }
 
   // Filter Category Pills
