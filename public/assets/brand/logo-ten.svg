@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" width="320" height="80" fill="none">
+  <defs>
+    <linearGradient id="tenGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00D2FF" />
+      <stop offset="50%" stop-color="#3A7BD5" />
+      <stop offset="100%" stop-color="#7F00FF" />
+    </linearGradient>
+    <linearGradient id="tenAccent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00F2FE" />
+      <stop offset="100%" stop-color="#4FACFE" />
+    </linearGradient>
+    <filter id="tenGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Logo Icon Badge -->
+  <rect x="10" y="10" width="60" height="60" rx="16" fill="url(#tenGrad)" />
+  <path d="M25 26 H45 M35 26 V54" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" />
+  <circle cx="53" cy="28" r="4.5" fill="#00F2FE" filter="url(#tenGlow)" />
+
+  <!-- Typography -->
+  <text x="85" y="47" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="28" font-weight="900" letter-spacing="1.5" fill="#0F172A">
+    TEN<tspan fill="url(#tenAccent)">.MY.ID</tspan>
+  </text>
+  <text x="86" y="63" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="600" letter-spacing="3" fill="#64748B">
+    CDN EDGE NETWORK
+  </text>
+</svg>

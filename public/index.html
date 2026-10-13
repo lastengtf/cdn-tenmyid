@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CDN TEN — Fast Global Edge Delivery for TEN-MY-ID</title>
+  
+  <!-- SEO & Social Meta Tags -->
+  <meta name="description" content="Platform Content Delivery Network (CDN) resmi ekosistem TEN-MY-ID untuk distribusi ultra-cepat gambar, video, stylesheet CSS, script JS, font, dan aset statis via Cloudflare Edge.">
+  <meta name="keywords" content="CDN TEN, cdn.ten.my.id, TEN-MY-ID, Cloudflare Pages CDN, Static Asset Hosting, Edge Caching">
+  <meta name="author" content="TEN-MY-ID">
+  <meta property="og:title" content="CDN TEN — Fast Global Edge Delivery">
+  <meta property="og:description" content="Infrastruktur CDN terdistribusi global untuk hosting aset digital TEN-MY-ID dengan integrasi CORS & HTTP/3.">
+  <meta property="og:url" content="https://cdn.ten.my.id">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://cdn.ten.my.id/assets/brand/logo-ten-dark.svg">
+  <meta name="theme-color" content="#0a0e17">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="alternate icon" href="/favicon.ico">
+
+  <!-- Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="/assets/css/ten-core.css">
+  <link rel="stylesheet" href="/portal/css/portal.css">
+</head>
+<body>
+
+  <!-- Top Navigation Bar -->
+  <header class="navbar">
+    <div class="container nav-content">
+      <a href="/" class="brand-link" title="CDN TEN Beranda">
+        <img src="/assets/brand/logo-ten-dark.svg" alt="CDN TEN" class="brand-logo">
+      </a>
+      <div class="nav-actions">
+        <div class="status-badge" title="Jaringan Cloudflare Aktif">
+          <span class="status-dot"></span>
+          <span>Cloudflare Edge Active</span>
+        </div>
+        <a href="https://github.com/lastengtf/cdn-tenmyid" target="_blank" rel="noopener noreferrer" class="nav-btn" id="btn-github-nav">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          <span>GitHub</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <main>
+    <section class="hero container">
+      <div class="hero-pill">
+        <span>⚡ Cloudflare Edge Network</span>
+        <span>•</span>
+        <span id="edge-latency">Mengukur Latency...</span>
+      </div>
+      <h1 class="hero-title">
+        Infrastruktur Aset Cepat<br>
+        <span class="gradient-text">cdn.ten.my.id</span>
+      </h1>
+      <p class="hero-subtitle">
+        Platform hosting terpadu untuk aset gambar, stylesheet CSS, script JavaScript, font, dan media publik. Terdistribusi global dengan dukungan penuh CORS lintas domain.
+      </p>
+
+      <!-- Key Capabilities Grid -->
+      <div class="features-grid">
+        <div class="feature-box glass-panel">
+          <div class="feature-icon">🌐</div>
+          <h3 class="feature-title">Global Anycast</h3>
+          <p class="feature-desc">Aset dilayani langsung dari 300+ data center edge terdekat di seluruh dunia.</p>
+        </div>
+        <div class="feature-box glass-panel">
+          <div class="feature-icon">🔓</div>
+          <h3 class="feature-title">CORS Ready</h3>
+          <p class="feature-desc">Header <code>Access-Control-Allow-Origin: *</code> aktif otomatis di setiap file.</p>
+        </div>
+        <div class="feature-box glass-panel">
+          <div class="feature-icon">📦</div>
+          <h3 class="feature-title">Immutable Caching</h3>
+          <p class="feature-desc">Penyimpanan cache jangka panjang dengan kompresi Brotli & HTTP/3.</p>
+        </div>
+        <div class="feature-box glass-panel">
+          <div class="feature-icon">🚀</div>
+          <h3 class="feature-title">Git-Driven CI/CD</h3>
+          <p class="feature-desc">Cukup push file baru ke GitHub, Cloudflare Pages langsung live instan.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Explorer Section -->
+    <section class="explorer-section container" id="explorer">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Katalog Aset & Live Explorer</h2>
+          <p class="section-subtitle">Temukan berkas aset dan salin kode integrasi dalam 1-klik</p>
+        </div>
+      </div>
+
+      <!-- Search & Controls Bar -->
+      <div class="controls-bar glass-panel">
+        <div class="search-box-wrapper">
+          <span class="search-icon">🔍</span>
+          <input 
+            type="text" 
+            id="search-input" 
+            class="search-input" 
+            placeholder="Cari berdasarkan nama file, path, atau kategori (misal: logo, css, js)..."
+            autocomplete="off"
+          >
+        </div>
+        
+        <div class="filter-chips">
+          <button class="filter-chip active" data-category="all">
+            Semua Aset <span class="chip-count">0</span>
+          </button>
+          <button class="filter-chip" data-category="brand">
+            Brand & Logo <span class="chip-count">0</span>
+          </button>
+          <button class="filter-chip" data-category="css">
+            CSS Stylesheet <span class="chip-count">0</span>
+          </button>
+          <button class="filter-chip" data-category="js">
+            JavaScript <span class="chip-count">0</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Dynamic Assets Grid -->
+      <div class="assets-grid" id="assets-grid">
+        <!-- Rendered dynamically by portal.js -->
+      </div>
+    </section>
+
+    <!-- Quick Start Integration Section -->
+    <section class="quickstart-section container">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Panduan Cepat Integrasi</h2>
+          <p class="section-subtitle">Cara menyematkan aset CDN TEN ke aplikasi web Anda</p>
+        </div>
+      </div>
+
+      <div class="quickstart-cards">
+        <div class="qs-card glass-panel">
+          <h3 class="qs-title">🎨 Import CSS Global</h3>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">Gunakan stylesheet inti TEN di tag <code>&lt;head&gt;</code> proyek HTML Anda:</p>
+          <pre class="qs-code">&lt;link rel="stylesheet" href="https://cdn.ten.my.id/assets/css/ten-core.css"&gt;</pre>
+        </div>
+
+        <div class="qs-card glass-panel">
+          <h3 class="qs-title">⚙️ Muat Script Utility</h3>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">Gunakan library JavaScript bersama di bagian bawah <code>&lt;body&gt;</code>:</p>
+          <pre class="qs-code">&lt;script src="https://cdn.ten.my.id/assets/js/ten-utils.js"&gt;&lt;/script&gt;</pre>
+        </div>
+
+        <div class="qs-card glass-panel">
+          <h3 class="qs-title">🖼️ Tampilkan Logo Vektor</h3>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">Sematkan logo resmi SVG dengan loading performa tinggi:</p>
+          <pre class="qs-code">&lt;img src="https://cdn.ten.my.id/assets/brand/logo-ten.svg" alt="TEN" width="160"&gt;</pre>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Snippet & Preview Modal -->
+  <div class="modal-backdrop" id="snippet-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modal-title">Aset</h3>
+        <button class="modal-close" id="modal-close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-preview-box" id="modal-preview-box">
+          <!-- Rendered dynamically if image -->
+        </div>
+
+        <div class="snippet-tabs">
+          <button class="snippet-tab active" data-format="url">Direct URL</button>
+          <button class="snippet-tab" data-format="html">HTML Tag</button>
+          <button class="snippet-tab" data-format="md">Markdown</button>
+          <button class="snippet-tab" data-format="css">CSS @import</button>
+        </div>
+
+        <div class="snippet-code-box" id="snippet-code">
+          <!-- Code snippet -->
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+          <button class="btn-copy-direct" id="copy-modal-btn">
+            Salin Kode
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container footer-content">
+      <div>
+        <p><strong>CDN TEN</strong> — High Performance Asset Platform</p>
+        <p style="margin-top: 0.25rem;">Domain: <a href="https://cdn.ten.my.id" class="footer-link">cdn.ten.my.id</a> | Powered by Cloudflare Pages</p>
+      </div>
+      <div class="footer-links">
+        <a href="https://github.com/lastengtf/cdn-tenmyid" target="_blank" rel="noopener noreferrer" class="footer-link">GitHub Repository</a>
+        <a href="#explorer" class="footer-link">Asset Explorer</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="/assets/js/ten-utils.js"></script>
+  <script src="/portal/js/portal.js"></script>
+</body>
+</html>

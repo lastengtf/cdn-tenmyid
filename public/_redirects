@@ -1,0 +1,10 @@
+# Cloudflare Pages Redirects & Aliases
+# Format: /source /target [status]
+
+# Quick shortlinks / Aliases
+/logo           /assets/brand/logo-ten.svg       302
+/logo-dark      /assets/brand/logo-ten-dark.svg  302
+/css/core       /assets/css/ten-core.css         302
+/js/utils       /assets/js/ten-utils.js          302
+/core.css       /assets/css/ten-core.css         302
+/utils.js       /assets/js/ten-utils.js          302

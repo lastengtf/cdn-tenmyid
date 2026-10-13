@@ -1,0 +1,190 @@
+/*!
+ * TEN Core CSS v1.0.0
+ * Official shared stylesheet for TEN-MY-ID platforms
+ * CDN: https://cdn.ten.my.id/assets/css/ten-core.css
+ * License: MIT
+ */
+
+:root {
+  /* Color Palette */
+  --ten-primary: #2563eb;
+  --ten-primary-hover: #1d4ed8;
+  --ten-primary-light: #dbeafe;
+  --ten-secondary: #0ea5e9;
+  --ten-accent: #7c3aed;
+  --ten-success: #10b981;
+  --ten-warning: #f59e0b;
+  --ten-danger: #ef4444;
+  --ten-dark: #0f172a;
+  --ten-light: #f8fafc;
+  --ten-gray-100: #f1f5f9;
+  --ten-gray-200: #e2e8f0;
+  --ten-gray-300: #cbd5e1;
+  --ten-gray-500: #64748b;
+  --ten-gray-700: #334155;
+  --ten-gray-900: #0f172a;
+
+  /* Typography */
+  --ten-font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  --ten-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Radii & Shadows */
+  --ten-radius-sm: 6px;
+  --ten-radius-md: 10px;
+  --ten-radius-lg: 16px;
+  --ten-radius-full: 9999px;
+  --ten-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --ten-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --ten-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  --ten-shadow-glow: 0 0 20px rgba(37, 99, 235, 0.35);
+
+  /* Transitions */
+  --ten-transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --ten-transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Dark Mode Variables */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ten-light: #0b0f19;
+    --ten-gray-100: #131b2e;
+    --ten-gray-200: #1e293b;
+    --ten-gray-300: #334155;
+    --ten-gray-500: #94a3b8;
+    --ten-gray-700: #cbd5e1;
+    --ten-gray-900: #f8fafc;
+  }
+}
+
+/* Reset Defaults */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--ten-font-sans);
+  background-color: var(--ten-light);
+  color: var(--ten-gray-900);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Layout Utilities */
+.ten-container {
+  width: 100%;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+
+.ten-flex { display: flex; }
+.ten-flex-col { display: flex; flex-direction: column; }
+.ten-items-center { align-items: center; }
+.ten-justify-between { justify-content: space-between; }
+.ten-justify-center { justify-content: center; }
+.ten-gap-1 { gap: 0.25rem; }
+.ten-gap-2 { gap: 0.5rem; }
+.ten-gap-4 { gap: 1rem; }
+.ten-gap-6 { gap: 1.5rem; }
+.ten-gap-8 { gap: 2rem; }
+
+.ten-grid { display: grid; }
+.ten-grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+.ten-grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ten-grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+@media (max-width: 768px) {
+  .ten-grid-cols-2, .ten-grid-cols-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Glassmorphism Card */
+.ten-glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: var(--ten-radius-md);
+  box-shadow: var(--ten-shadow-md);
+}
+
+.ten-card {
+  background: #ffffff;
+  border: 1px solid var(--ten-gray-200);
+  border-radius: var(--ten-radius-md);
+  padding: 1.5rem;
+  box-shadow: var(--ten-shadow-sm);
+  transition: transform var(--ten-transition-base), box-shadow var(--ten-transition-base);
+}
+
+.ten-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--ten-shadow-md);
+}
+
+/* Buttons */
+.ten-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: var(--ten-radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all var(--ten-transition-fast);
+  text-decoration: none;
+}
+
+.ten-btn-primary {
+  background: linear-gradient(135deg, var(--ten-primary), var(--ten-accent));
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+}
+
+.ten-btn-primary:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.ten-btn-secondary {
+  background: var(--ten-gray-100);
+  color: var(--ten-gray-900);
+  border-color: var(--ten-gray-200);
+}
+
+.ten-btn-secondary:hover {
+  background: var(--ten-gray-200);
+}
+
+/* Badges */
+.ten-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: var(--ten-radius-full);
+}
+
+.ten-badge-success { background: #dcfce7; color: #15803d; }
+.ten-badge-primary { background: #dbeafe; color: #1d4ed8; }
+.ten-badge-warning { background: #fef3c7; color: #b45309; }
+
+/* Code Block & Inlines */
+.ten-code-inline {
+  font-family: var(--ten-font-mono);
+  font-size: 0.85em;
+  background: var(--ten-gray-100);
+  color: var(--ten-primary);
+  padding: 0.15rem 0.4rem;
+  border-radius: var(--ten-radius-sm);
+  border: 1px solid var(--ten-gray-200);
+}
