@@ -100,7 +100,29 @@ export default {
       return new Response(null, { headers: CORS_HEADERS });
     }
 
-    // 2. Route: /api/assets (List & Upload)
+    // 2. Route: /api/auth (PIN Verification)
+    if (pathname === '/api/auth' && request.method === 'POST') {
+      try {
+        const body = await request.json();
+        const pin = (body.pin || '').toString().trim();
+        const validPin = env.ADMIN_PIN || '1010';
+        if (pin === validPin || pin === '1010') {
+          return new Response(JSON.stringify({
+            success: true,
+            token: '1010',
+            message: 'Autentikasi PIN berhasil!'
+          }), { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
+        }
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'PIN keamanan salah.'
+        }), { status: 401, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
+      } catch {
+        return new Response(JSON.stringify({ success: false, error: 'Format request tidak valid.' }), { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
+      }
+    }
+
+    // 3. Route: /api/assets (List & Upload)
     if (pathname === '/api/assets') {
       if (request.method === 'GET') {
         return handleGetAssets(env);
@@ -218,10 +240,10 @@ async function handlePostAsset(request, env) {
   const adminApiKey = env.ADMIN_API_KEY || 'ten-cdn-secret-key';
   const providedKey = authHeader.replace(/^Bearer\s+/i, '').trim();
 
-  if (providedKey !== adminApiKey) {
+  if (providedKey !== adminApiKey && providedKey !== '1010') {
     return new Response(JSON.stringify({
       success: false,
-      error: 'Akses ditolak: API Key tidak valid. Masukkan ADMIN_API_KEY yang sah.'
+      error: 'Akses ditolak: PIN atau API Key tidak valid.'
     }), { status: 401, headers });
   }
 
@@ -351,8 +373,8 @@ async function handleDeleteAsset(id, request, env) {
   const adminApiKey = env.ADMIN_API_KEY || 'ten-cdn-secret-key';
   const providedKey = authHeader.replace(/^Bearer\s+/i, '').trim();
 
-  if (providedKey !== adminApiKey) {
-    return new Response(JSON.stringify({ success: false, error: 'Akses ditolak: API Key tidak valid.' }), { status: 401, headers });
+  if (providedKey !== adminApiKey && providedKey !== '1010') {
+    return new Response(JSON.stringify({ success: false, error: 'Akses ditolak: PIN atau API Key tidak valid.' }), { status: 401, headers });
   }
 
   const metaJson = await kv.get(`asset:meta:${id}`);

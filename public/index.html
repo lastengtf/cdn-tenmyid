@@ -31,6 +31,45 @@
 </head>
 <body>
 
+  <!-- Cyber Security PIN Lock Screen -->
+  <div class="lock-screen" id="lock-screen">
+    <div class="lock-card" id="lock-card">
+      <div class="lock-icon-badge">
+        <span>🔐</span>
+      </div>
+      <h2 class="lock-title">CDN TEN ACCESS</h2>
+      <p class="lock-subtitle">Masukkan PIN Keamanan untuk Mengelola CDN</p>
+
+      <!-- 4 PIN Dots -->
+      <div class="pin-dots-wrapper">
+        <span class="pin-dot" id="dot-0"></span>
+        <span class="pin-dot" id="dot-1"></span>
+        <span class="pin-dot" id="dot-2"></span>
+        <span class="pin-dot" id="dot-3"></span>
+      </div>
+
+      <div class="pin-error-msg" id="pin-error-msg"></div>
+
+      <!-- Numeric Keypad -->
+      <div class="pin-keypad">
+        <button type="button" class="pin-key-btn" data-key="1">1</button>
+        <button type="button" class="pin-key-btn" data-key="2">2</button>
+        <button type="button" class="pin-key-btn" data-key="3">3</button>
+        <button type="button" class="pin-key-btn" data-key="4">4</button>
+        <button type="button" class="pin-key-btn" data-key="5">5</button>
+        <button type="button" class="pin-key-btn" data-key="6">6</button>
+        <button type="button" class="pin-key-btn" data-key="7">7</button>
+        <button type="button" class="pin-key-btn" data-key="8">8</button>
+        <button type="button" class="pin-key-btn" data-key="9">9</button>
+        <button type="button" class="pin-key-btn pin-key-action" id="pin-btn-clear" title="Reset PIN">C</button>
+        <button type="button" class="pin-key-btn" data-key="0">0</button>
+        <button type="button" class="pin-key-btn pin-key-action" id="pin-btn-backspace" title="Hapus Digit">⌫</button>
+      </div>
+
+      <p class="lock-footer-hint">PIN Pengelola: <strong>1010</strong> • Dapat diketik langsung via Keyboard</p>
+    </div>
+  </div>
+
   <!-- Top Navigation Bar -->
   <header class="navbar">
     <div class="container nav-content">
@@ -44,6 +83,9 @@
         </div>
         <button class="btn-primary-gradient" id="btn-open-upload-modal" title="Upload atau simpan aset baru ke KV">
           <span>+ Simpan ke KV</span>
+        </button>
+        <button class="btn-lockout" id="btn-lock-session" title="Kunci Dashboard CDN">
+          <span>🔒 Kunci</span>
         </button>
         <a href="https://github.com/lastengtf/cdn-tenmyid" target="_blank" rel="noopener noreferrer" class="nav-btn" id="btn-github-nav">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">

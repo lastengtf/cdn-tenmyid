@@ -19,6 +19,7 @@ Infrastruktur Content Delivery Network (CDN) resmi untuk ekosistem **TEN-MY-ID**
   - Endpoint penyaji berkas langsung `/raw/*` dengan header CORS & caching otomatis.
   - Layanan tautan pendek / redirects via `/s/*`.
 - **Dukungan CORS Penuh**: Header `Access-Control-Allow-Origin: *` otomatis aktif pada semua aset, memungkinkan pemanggilan lintas domain tanpa hambatan security browser.
+- **Proteksi Akses PIN Keamanan (PIN: 1010)**: Saat mengakses dashboard `cdn.ten.my.id`, pengguna disambut oleh layar login keamanan modern yang mewajibkan input PIN `1010` untuk mengelola, mengupload, maupun menghapus aset CDN.
 - **Portal Katalog Interaktif**: Mengunjungi `https://cdn.ten.my.id` membuka antarmuka modern untuk mencari aset, melihat preview, mengupload aset ke KV, dan menyalin format URL (Direct, HTML, Markdown, CSS) dalam 1-klik.
 - **Caching Cerdas**: Aturan cache adaptif (`stale-while-revalidate` untuk aset dinamis dan `immutable` 1 tahun untuk versi tetap `/v1/`).
 - **Alur Kerja Git Terotomatisasi**: Cukup push file baru ke repositori GitHub ini, Cloudflare Pages akan langsung mempublikasikannya secara instan.

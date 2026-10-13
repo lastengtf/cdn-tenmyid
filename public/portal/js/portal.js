@@ -1,9 +1,12 @@
 /**
- * CDN TEN - Portal Interactive Controller with Cloudflare KV Support
+ * CDN TEN - Portal Interactive Controller with PIN 1010 Lock & Cloudflare KV
  * Domain: cdn.ten.my.id
  */
 
 document.addEventListener('DOMContentLoaded', () => {
+  const MASTER_PIN = '1010';
+  let enteredPin = '';
+
   // Default Seed Assets (Fallback if KV not yet populated)
   let assets = [
     {
@@ -92,12 +95,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   ];
 
-  // DOM Elements
+  // DOM Elements - PIN Lock
+  const lockScreen = document.getElementById('lock-screen');
+  const lockCard = document.getElementById('lock-card');
+  const pinErrorMsg = document.getElementById('pin-error-msg');
+  const pinDots = [
+    document.getElementById('dot-0'),
+    document.getElementById('dot-1'),
+    document.getElementById('dot-2'),
+    document.getElementById('dot-3')
+  ];
+  const pinKeyBtns = document.querySelectorAll('.pin-key-btn[data-key]');
+  const pinBtnClear = document.getElementById('pin-btn-clear');
+  const pinBtnBackspace = document.getElementById('pin-btn-backspace');
+  const btnLockSession = document.getElementById('btn-lock-session');
+
+  // DOM Elements - Main Portal
   const assetsContainer = document.getElementById('assets-grid');
   const searchInput = document.getElementById('search-input');
   const filterChips = document.querySelectorAll('.filter-chip');
   
-  // Snippet Modal Elements
+  // Snippet Modal
   const modal = document.getElementById('snippet-modal');
   const modalCloseBtn = document.getElementById('modal-close-btn');
   const modalTitle = document.getElementById('modal-title');
@@ -107,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const copyModalBtn = document.getElementById('copy-modal-btn');
   const latencyBadge = document.getElementById('edge-latency');
 
-  // Upload Modal Elements
+  // Upload Modal
   const uploadModal = document.getElementById('upload-modal');
   const btnOpenUpload = document.getElementById('btn-open-upload-modal');
   const uploadCloseBtn = document.getElementById('upload-close-btn');
@@ -125,8 +143,148 @@ document.addEventListener('DOMContentLoaded', () => {
   let activeAsset = null;
   let activeFormat = 'url';
 
-  // Measure Edge Latency & Fetch dynamic KV assets
+  // ========================================================
+  // 1. PIN Security Lock Logic (PIN: 1010)
+  // ========================================================
+
+  function checkSessionAuth() {
+    const isAuth = sessionStorage.getItem('cdn_ten_pin_auth');
+    if (isAuth === MASTER_PIN) {
+      unlockScreen(false);
+    } else {
+      lockScreen.classList.remove('unlocked');
+    }
+  }
+
+  function updatePinDots() {
+    pinDots.forEach((dot, idx) => {
+      if (dot) {
+        if (idx < enteredPin.length) {
+          dot.classList.add('filled');
+        } else {
+          dot.classList.remove('filled');
+        }
+      }
+    });
+  }
+
+  async function handlePinInput(digit) {
+    if (enteredPin.length >= 4) return;
+    enteredPin += digit;
+    updatePinDots();
+    if (pinErrorMsg) pinErrorMsg.textContent = '';
+
+    if (enteredPin.length === 4) {
+      await verifyPin();
+    }
+  }
+
+  function handleBackspace() {
+    if (enteredPin.length > 0) {
+      enteredPin = enteredPin.slice(0, -1);
+      updatePinDots();
+      if (pinErrorMsg) pinErrorMsg.textContent = '';
+    }
+  }
+
+  function handleClearPin() {
+    enteredPin = '';
+    updatePinDots();
+    if (pinErrorMsg) pinErrorMsg.textContent = '';
+  }
+
+  async function verifyPin() {
+    let isValid = false;
+
+    // Try server verification first
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin: enteredPin })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) isValid = true;
+      }
+    } catch {}
+
+    // Fallback client-side check
+    if (!isValid && enteredPin === MASTER_PIN) {
+      isValid = true;
+    }
+
+    if (isValid) {
+      sessionStorage.setItem('cdn_ten_pin_auth', MASTER_PIN);
+      unlockScreen(true);
+    } else {
+      // Trigger error shake
+      if (lockCard) {
+        lockCard.classList.add('shake');
+        setTimeout(() => lockCard.classList.remove('shake'), 400);
+      }
+      if (pinErrorMsg) {
+        pinErrorMsg.textContent = 'PIN Salah! Silakan gunakan PIN 1010.';
+      }
+      setTimeout(() => {
+        enteredPin = '';
+        updatePinDots();
+      }, 500);
+    }
+  }
+
+  function unlockScreen(showNotice = true) {
+    if (lockScreen) {
+      lockScreen.classList.add('unlocked');
+      if (showNotice) {
+        notify('Akses Terverifikasi! Selamat datang di Pengelola CDN TEN.', 'success');
+      }
+    }
+  }
+
+  function lockSession() {
+    sessionStorage.removeItem('cdn_ten_pin_auth');
+    enteredPin = '';
+    updatePinDots();
+    if (pinErrorMsg) pinErrorMsg.textContent = '';
+    if (lockScreen) {
+      lockScreen.classList.remove('unlocked');
+    }
+    notify('Sesi berhasil dikunci.', 'info');
+  }
+
+  // Keypad Listeners
+  pinKeyBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.key;
+      handlePinInput(key);
+    });
+  });
+
+  if (pinBtnClear) pinBtnClear.addEventListener('click', handleClearPin);
+  if (pinBtnBackspace) pinBtnBackspace.addEventListener('click', handleBackspace);
+  if (btnLockSession) btnLockSession.addEventListener('click', lockSession);
+
+  // Keyboard Event Listener for PIN input
+  document.addEventListener('keydown', (e) => {
+    if (lockScreen && !lockScreen.classList.contains('unlocked')) {
+      if (e.key >= '0' && e.key <= '9') {
+        handlePinInput(e.key);
+      } else if (e.key === 'Backspace') {
+        handleBackspace();
+      } else if (e.key === 'Escape' || e.key === 'c' || e.key === 'C') {
+        handleClearPin();
+      }
+    }
+  });
+
+  // ========================================================
+  // 2. Main Portal Management & KV Logic
+  // ========================================================
+
   async function init() {
+    checkSessionAuth();
+
     if (latencyBadge) {
       const t0 = performance.now();
       fetch('/favicon.svg', { method: 'HEAD', cache: 'no-cache' })
@@ -139,11 +297,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Fetch dynamic assets from Cloudflare KV API
     await fetchAssetsFromKV();
   }
 
-  // Fetch Assets from KV Endpoint (/api/assets)
   async function fetchAssetsFromKV() {
     try {
       const res = await fetch('/api/assets');
@@ -151,7 +307,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const json = await res.json();
         if (json.success && Array.isArray(json.data) && json.data.length > 0) {
           assets = json.data;
-          console.log(`[CDN TEN] Berhasil memuat ${assets.length} aset dari database KV.`);
+          console.log(`[CDN TEN] Dimuat ${assets.length} aset dari database KV.`);
         }
       }
     } catch (err) {
@@ -162,7 +318,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Update Category Counts
   function updateCounts() {
     filterChips.forEach(chip => {
       const cat = chip.dataset.category;
@@ -178,7 +333,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Render Asset Cards
   function renderAssets() {
     if (!assetsContainer) return;
 
@@ -230,18 +384,44 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
           <div class="asset-actions">
             <button class="btn-snippet" onclick="window.openSnippetModal('${asset.id}')">
-              <span>📋 Get Snippet</span>
+              <span>📋 Snippet</span>
             </button>
             <button class="btn-copy-direct" title="Salin Tautan Langsung" onclick="window.copyDirectUrl('${fullUrl}')">
               <span>Salin Link</span>
             </button>
+            ${isKv ? `
+              <button class="btn-delete-asset" title="Hapus dari KV" onclick="window.deleteAssetFromKV('${asset.id}', '${escapeHtml(asset.name)}')">
+                <span>🗑️</span>
+              </button>
+            ` : ''}
           </div>
         </div>
       `;
     }).join('');
   }
 
-  // Generate Snippet Strings
+  // Delete Asset from KV
+  window.deleteAssetFromKV = async function(assetId, assetName) {
+    if (!confirm(`Apakah Anda yakin ingin menghapus aset "${assetName}" dari Cloudflare KV?`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/assets/${assetId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${MASTER_PIN}` }
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Gagal menghapus aset');
+      }
+      notify(`Aset "${assetName}" berhasil dihapus dari KV!`, 'success');
+      await fetchAssetsFromKV();
+    } catch (err) {
+      notify(`Error: ${err.message}`, 'error');
+    }
+  };
+
   function generateSnippet(asset, format) {
     const host = window.location.origin.includes('localhost') || window.location.origin.includes('file://')
       ? 'https://cdn.ten.my.id'
@@ -275,7 +455,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Open Snippet Modal
   window.openSnippetModal = function(assetId) {
     const asset = assets.find(a => a.id === assetId);
     if (!asset) return;
@@ -330,7 +509,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Modal Closures
   function closeSnippetModal() {
     modal.classList.remove('open');
   }
@@ -393,7 +571,7 @@ document.addEventListener('DOMContentLoaded', () => {
     uploadForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const submitBtn = document.getElementById('upload-submit-btn');
-      const apiKey = document.getElementById('input-api-key').value;
+      const apiKey = document.getElementById('input-api-key').value || MASTER_PIN;
       const isFile = radioTypeFile && radioTypeFile.checked;
 
       submitBtn.disabled = true;
