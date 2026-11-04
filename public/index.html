@@ -12,6 +12,17 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
+  <!-- TEN Single Sign-On (SSO) Authentication SDK -->
+  <script src="https://login.ten.my.id/sdk.js" data-auto-redirect="true"></script>
+  <script>
+    // Mengambil data akun yang sedang login:
+    if (window.TenAuth) {
+      console.log(window.TenAuth.user); // { id, username, name, email }
+    }
+    // Untuk tombol logout di aplikasi Anda:
+    // TenAuth.logout();
+  </script>
+
   <link rel="stylesheet" href="/portal/css/portal.css">
 
   <style>
@@ -1077,6 +1088,26 @@ textarea {
       </div>
 
       <div id="login-error" class="alert-box alert-error" style="display: none;"></div>
+
+      <div class="sso-section" style="margin-bottom: 20px; text-align: center;">
+        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 14px; line-height: 1.5;">
+          Autentikasi terpusat menggunakan <strong>Akun TEN</strong> (login.ten.my.id).
+        </p>
+        <button type="button" id="btn-sso-login" class="btn btn-primary btn-block" style="padding: 10px 16px; font-weight: 600;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+            <polyline points="10 17 15 12 10 7"></polyline>
+            <line x1="15" y1="12" x2="3" y2="12"></line>
+          </svg>
+          <span class="btn-label">Masuk dengan Akun TEN</span>
+        </button>
+      </div>
+
+      <div style="display: flex; align-items: center; margin: 18px 0; color: var(--text-dim); font-size: 11px;">
+        <div style="flex: 1; height: 1px; background: var(--border-subtle);"></div>
+        <span style="padding: 0 10px;">atau login email &amp; password</span>
+        <div style="flex: 1; height: 1px; background: var(--border-subtle);"></div>
+      </div>
 
       <form id="form-login" class="auth-form" autocomplete="on">
         <div class="form-group">

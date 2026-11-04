@@ -51,6 +51,16 @@ async function runTests() {
   console.assert(dataMeAuth.authenticated === true && dataMeAuth.email === 'admin@ten.my.id', 'Test 5 Failed');
   console.log(`✅ Test 5: Sesi valid untuk email: ${dataMeAuth.email}`);
 
+  // Test 5b: Auth Me via Ten SSO Cookie (login.ten.my.id)
+  const mockSsoUser = { id: 'sso-1', username: 'tenadmin', name: 'TEN Master', email: 'master@ten.my.id' };
+  const ssoUserCookieVal = Buffer.from(JSON.stringify(mockSsoUser)).toString('base64url');
+  const resMeSso = await fetch(`${BASE}/api/auth/me`, {
+    headers: { 'Cookie': `ten_user=${ssoUserCookieVal}` }
+  });
+  const dataMeSso = await resMeSso.json();
+  console.assert(dataMeSso.authenticated === true && dataMeSso.user.username === 'tenadmin', 'Test 5b Failed: SSO Cookie Auth');
+  console.log(`✅ Test 5b: Sesi valid via Cookie Ten SSO (login.ten.my.id): @${dataMeSso.user.username}`);
+
   // Test 6: Ambil Daftar Aset Awal
   const resListInitial = await fetch(`${BASE}/api/assets`, {
     headers: { 'Authorization': `Bearer ${token}` }

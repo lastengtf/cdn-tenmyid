@@ -172,12 +172,34 @@ export default {
    ========================================================================= */
 
 async function getAuthenticatedSession(request, env) {
+  const cookieHeader = request.headers.get('Cookie') || '';
+
+  // 1. Cek Cookie SSO TEN (ten_user / ten_sso dari login.ten.my.id)
+  const tenUserMatch = cookieHeader.match(/(?:^|;\s*)ten_user=([^;]+)/);
+  if (tenUserMatch) {
+    try {
+      let b = decodeURIComponent(tenUserMatch[1]).replace(/-/g, '+').replace(/_/g, '/');
+      while (b.length % 4) b += '=';
+      const user = JSON.parse(atob(b));
+      if (user && (user.id || user.username || user.email)) {
+        return {
+          token: 'ten_sso',
+          email: user.email || user.username || 'admin@ten.my.id',
+          name: user.name || user.username,
+          user,
+          isSso: true
+        };
+      }
+    } catch {}
+  }
+
+  // 2. Cek Authorization Header (Bearer token)
   const authHeader = request.headers.get('Authorization') || '';
   let token = authHeader.replace(/^Bearer\s+/i, '').trim();
 
+  // 3. Cek Cookie sesi lokal cdn_session
   if (!token) {
-    const cookieHeader = request.headers.get('Cookie') || '';
-    const match = cookieHeader.match(/cdn_session=([^;]+)/);
+    const match = cookieHeader.match(/(?:^|;\s*)cdn_session=([^;]+)/);
     if (match) {
       token = match[1].trim();
     }
@@ -242,7 +264,9 @@ async function handleAuthMe(request, env) {
   if (session) {
     return jsonResponse({
       authenticated: true,
-      email: session.email
+      email: session.email,
+      name: session.name || session.email,
+      user: session.user || { email: session.email }
     });
   }
   return jsonResponse({ authenticated: false });
@@ -250,7 +274,7 @@ async function handleAuthMe(request, env) {
 
 async function handleLogout(request, env) {
   const session = await getAuthenticatedSession(request, env);
-  if (session) {
+  if (session && !session.isSso) {
     await kvStore.delete(env, `session:${session.token}`);
   }
 

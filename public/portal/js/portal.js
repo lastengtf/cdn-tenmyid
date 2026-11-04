@@ -12,6 +12,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let state = {
     token: localStorage.getItem('cdn_token') || '',
     email: '',
+    name: '',
+    user: null,
     assets: [],
     filterCategory: 'ALL',
     searchQuery: '',
@@ -25,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Elements - Auth
   const formLogin = document.getElementById('form-login');
+  const btnSsoLogin = document.getElementById('btn-sso-login');
   const inputEmail = document.getElementById('login-email');
   const inputPassword = document.getElementById('login-password');
   const loginError = document.getElementById('login-error');
@@ -94,10 +97,35 @@ document.addEventListener('DOMContentLoaded', () => {
   checkAuth();
 
   async function checkAuth() {
+    // 1. Periksa Akun TEN via window.TenAuth (Single Sign-On login.ten.my.id)
+    if (window.TenAuth) {
+      console.log('TenAuth User:', window.TenAuth.user);
+      let user = window.TenAuth.user;
+      if (!user && typeof window.TenAuth.getUser === 'function') {
+        try {
+          user = await window.TenAuth.getUser();
+        } catch (e) {
+          console.warn('Gagal memverifikasi user dari TenAuth:', e);
+        }
+      }
+
+      if (user) {
+        state.user = user;
+        state.email = user.email || user.username || 'admin@ten.my.id';
+        state.name = user.name || user.username || user.email;
+        showAdminView();
+        loadAssets();
+        return;
+      }
+    }
+
+    // 2. Fallback ke endpoint sesi lokal (/api/auth/me)
     try {
       const res = await apiRequest('/api/auth/me', 'GET');
       if (res && res.authenticated) {
         state.email = res.email || 'admin';
+        state.user = res.user || null;
+        state.name = (res.user && res.user.name) ? res.user.name : (res.name || state.email);
         showAdminView();
         loadAssets();
       } else {
@@ -117,13 +145,25 @@ document.addEventListener('DOMContentLoaded', () => {
   function showAdminView() {
     viewLogin.style.display = 'none';
     viewAdmin.style.display = 'flex';
-    userEmailDisplay.textContent = state.email || 'admin';
+    userEmailDisplay.textContent = state.name || state.email || 'admin';
   }
 
   /* =========================================================================
-     2. Form Login & Logout
+     2. Form Login, SSO & Logout
      ========================================================================= */
 
+  // SSO Login Action
+  if (btnSsoLogin) {
+    btnSsoLogin.addEventListener('click', () => {
+      if (window.TenAuth && typeof window.TenAuth.requireLogin === 'function') {
+        window.TenAuth.requireLogin();
+      } else {
+        window.location.href = 'https://login.ten.my.id/?redirect=' + encodeURIComponent(window.location.href);
+      }
+    });
+  }
+
+  // Fallback Manual Form Login
   if (formLogin) {
     formLogin.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -145,6 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (res.ok && data.success) {
           state.token = data.token;
           state.email = data.email || email;
+          state.name = state.email;
           localStorage.setItem('cdn_token', data.token);
           formLogin.reset();
           showAdminView();
@@ -183,9 +224,17 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch {}
         state.token = '';
         state.email = '';
+        state.name = '';
+        state.user = null;
         localStorage.removeItem('cdn_token');
-        showLoginView();
-        showToast('Anda telah keluar.');
+
+        if (window.TenAuth && typeof window.TenAuth.logout === 'function') {
+          // SSO Logout via login.ten.my.id
+          window.TenAuth.logout();
+        } else {
+          showLoginView();
+          showToast('Anda telah keluar.');
+        }
       }
     });
   }
