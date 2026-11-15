@@ -165,6 +165,36 @@ async function runTests() {
   console.assert(resNewPath.status === 200, 'Test 15 Failed: New custom path failed');
   console.log('✅ Test 15: Custom path baru (/css/button-v2.css) langsung aktif di KV');
 
+  // Test 15b: Simpan Versi Kompres & Toggle Kualitas pada Path yang Sama
+  const compForm = new FormData();
+  compForm.append('file', new Blob(['compressed-content'], { type: 'image/webp' }), 'btnstyle.webp');
+  compForm.append('format', 'webp');
+  compForm.append('quality', '0.8');
+  compForm.append('maxWidth', '1280');
+  compForm.append('activate', 'true');
+  const resComp = await fetch(`${BASE}/api/assets/asset_btnstyle/compress`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}` },
+    body: compForm
+  });
+  const dataComp = await resComp.json();
+  console.assert(resComp.status === 200 && dataComp.data.activeQuality === 'compressed', 'Test 15b Failed');
+  const resServeComp = await fetch(`${BASE}/css/button-v2.css`);
+  console.assert(resServeComp.headers.get('X-CDN-Quality') === 'compressed', 'Test 15b Failed: X-CDN-Quality should be compressed');
+  console.log('✅ Test 15b: Versi kompres disimpan dan aktif di path yang sama');
+
+  // Test 15c: Switch Kualitas Kembali ke Original
+  const resSwitch = await fetch(`${BASE}/api/assets/asset_btnstyle/quality`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify({ activeQuality: 'original' })
+  });
+  const dataSwitch = await resSwitch.json();
+  console.assert(resSwitch.status === 200 && dataSwitch.data.activeQuality === 'original', 'Test 15c Failed');
+  const resServeOrig = await fetch(`${BASE}/css/button-v2.css`);
+  console.assert(resServeOrig.headers.get('X-CDN-Quality') === 'original', 'Test 15c Failed: X-CDN-Quality should be original');
+  console.log('✅ Test 15c: Switch kualitas kembali ke Original berhasil');
+
   // Test 16: Hapus Aset (DELETE /api/assets/asset_btnstyle)
   const resDel = await fetch(`${BASE}/api/assets/asset_btnstyle`, {
     method: 'DELETE',

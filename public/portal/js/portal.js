@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     assets: [],
     filterCategory: 'ALL',
     searchQuery: '',
+    viewMode: localStorage.getItem('cdn_view_mode') || 'table', // 'table' | 'compact' | 'grid'
     selectedFile: null,
     uploadMode: 'file' // 'file' | 'code'
   };
@@ -39,7 +40,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Elements - Admin Dashboard
   const inputSearch = document.getElementById('input-search');
   const categoryFilterList = document.getElementById('category-filter-list');
+  const viewModeSwitcher = document.getElementById('view-mode-switcher');
+  const assetsTableWrap = document.getElementById('assets-table-wrap');
   const assetsTableBody = document.getElementById('assets-table-body');
+  const assetsCompactList = document.getElementById('assets-compact-list');
+  const assetsGridView = document.getElementById('assets-grid-view');
   const assetsEmptyState = document.getElementById('assets-empty-state');
   const btnOpenUpload = document.getElementById('btn-open-upload');
 
@@ -61,7 +66,36 @@ document.addEventListener('DOMContentLoaded', () => {
   const inputRandomSlug = document.getElementById('input-random-slug');
   const btnRefreshSlug = document.getElementById('btn-refresh-slug');
   const inputCustomPath = document.getElementById('input-custom-path');
+  const uploadCompressBox = document.getElementById('upload-compress-box');
+  const uploadAutoCompress = document.getElementById('upload-auto-compress');
   const btnSubmitUpload = document.getElementById('btn-submit-upload');
+
+  // Elements - Compress / Quality Modal
+  const modalCompress = document.getElementById('modal-compress');
+  const btnCloseCompressModal = document.getElementById('btn-close-compress-modal');
+  const btnCancelCompress = document.getElementById('btn-cancel-compress');
+  const compressModalTitle = document.getElementById('compress-modal-title');
+  const compressModalPath = document.getElementById('compress-modal-path');
+  const compressAssetId = document.getElementById('compress-asset-id');
+  const btnActivateOriginal = document.getElementById('btn-activate-original');
+  const btnActivateCompressed = document.getElementById('btn-activate-compressed');
+  const pillOriginalActive = document.getElementById('pill-original-active');
+  const pillCompressedActive = document.getElementById('pill-compressed-active');
+  const compressOriginalSize = document.getElementById('compress-original-size');
+  const compressOriginalMime = document.getElementById('compress-original-mime');
+  const compressSavedSize = document.getElementById('compress-saved-size');
+  const compressSavedMeta = document.getElementById('compress-saved-meta');
+  const compressFormat = document.getElementById('compress-format');
+  const compressMaxWidth = document.getElementById('compress-max-width');
+  const compressQuality = document.getElementById('compress-quality');
+  const compressQualityValue = document.getElementById('compress-quality-value');
+  const compressSavingsBadge = document.getElementById('compress-savings-badge');
+  const compressPreviewImg = document.getElementById('compress-preview-img');
+  const compressEstSize = document.getElementById('compress-est-size');
+  const compressEstDim = document.getElementById('compress-est-dim');
+  const compressActivateNow = document.getElementById('compress-activate-now');
+  const btnSaveCompressed = document.getElementById('btn-save-compressed');
+  const btnDeleteCompressed = document.getElementById('btn-delete-compressed');
 
   // Elements - Edit Modal
   const modalEdit = document.getElementById('modal-edit');
@@ -260,7 +294,42 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function isCompressibleImage(item) {
+    const ext = (item.extension || '').toLowerCase();
+    const mime = (item.mimeType || '').toLowerCase();
+    if (ext === 'svg' || ext === 'gif' || mime.includes('svg') || mime.includes('gif')) return false;
+    return mime.startsWith('image/') || ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'avif'].includes(ext);
+  }
+
+  function getActiveSizeLabel(item) {
+    if (item.activeQuality === 'compressed' && item.compressed) {
+      return item.compressed.sizeFormatted || formatBytes(item.compressed.sizeBytes || 0);
+    }
+    return item.sizeFormatted || formatBytes(item.sizeBytes || 0);
+  }
+
+  function getQualityBadgeHtml(item) {
+    if (!isCompressibleImage(item)) return '';
+    if (item.activeQuality === 'compressed' && item.compressed) {
+      return `<button type="button" class="quality-badge is-compressed" onclick="openCompressModal('${item.id}')" title="Aktif: Versi Kompres (klik untuk atur)">Kompres</button>`;
+    }
+    if (item.compressed) {
+      return `<button type="button" class="quality-badge is-original-with-comp" onclick="openCompressModal('${item.id}')" title="Aktif: Original (versi kompres tersedia)">Original</button>`;
+    }
+    return `<button type="button" class="quality-badge" onclick="openCompressModal('${item.id}')" title="Buat versi kompres">Kompres+</button>`;
+  }
+
+  function syncViewModeUi() {
+    if (viewModeSwitcher) {
+      viewModeSwitcher.querySelectorAll('.btn-view-mode').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-view') === state.viewMode);
+      });
+    }
+  }
+
   function renderDashboard() {
+    syncViewModeUi();
+
     // 1. Filter & Search
     const filtered = state.assets.filter(item => {
       const matchCat = state.filterCategory === 'ALL' || item.category === state.filterCategory;
@@ -274,14 +343,105 @@ document.addEventListener('DOMContentLoaded', () => {
       return name.includes(q) || slug.includes(q) || custom.includes(q);
     });
 
-    // 2. Render Table
     if (filtered.length === 0) {
       assetsTableBody.innerHTML = '';
+      if (assetsCompactList) assetsCompactList.innerHTML = '';
+      if (assetsGridView) assetsGridView.innerHTML = '';
+      if (assetsTableWrap) assetsTableWrap.style.display = 'none';
+      if (assetsCompactList) assetsCompactList.style.display = 'none';
+      if (assetsGridView) assetsGridView.style.display = 'none';
       assetsEmptyState.style.display = 'flex';
       return;
     }
 
     assetsEmptyState.style.display = 'none';
+
+    if (assetsTableWrap) assetsTableWrap.style.display = state.viewMode === 'table' ? 'block' : 'none';
+    if (assetsCompactList) assetsCompactList.style.display = state.viewMode === 'compact' ? 'flex' : 'none';
+    if (assetsGridView) assetsGridView.style.display = state.viewMode === 'grid' ? 'grid' : 'none';
+
+    if (state.viewMode === 'compact' && assetsCompactList) {
+      assetsCompactList.innerHTML = filtered.map(item => {
+        const randomUrl = `${BASE_URL}/${item.randomSlug}`;
+        const activeUrl = item.customPath ? `${BASE_URL}/${item.customPath}` : randomUrl;
+        const displayPath = item.customPath ? `/${item.customPath}` : `/${item.randomSlug}`;
+        return `
+          <div class="compact-row" data-id="${item.id}">
+            <div class="compact-main">
+              <div class="compact-thumb" onclick="openPreviewModal('${item.id}')" style="cursor: pointer;">
+                ${getAssetThumbnail(item)}
+              </div>
+              <span class="compact-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
+              <span class="badge-cat">${escapeHtml(item.category || 'Lainnya')}</span>
+              <span class="compact-path" title="${escapeHtml(displayPath)}">${escapeHtml(displayPath)}</span>
+            </div>
+            <div class="compact-meta">
+              ${getQualityBadgeHtml(item)}
+              <span class="compact-size">${getActiveSizeLabel(item)}</span>
+              <div class="cell-actions-row">
+                <button class="btn-icon-only" onclick="copyText('${activeUrl}')" title="Salin URL">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                </button>
+                <button class="btn-icon-only" onclick="openPreviewModal('${item.id}')" title="Preview">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+                <button class="btn-icon-only" onclick="openEditModal('${item.id}')" title="Edit">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                </button>
+                <button class="btn-icon-only btn-delete" onclick="deleteAsset('${item.id}', '${escapeHtml(item.name)}')" title="Hapus">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+      return;
+    }
+
+    if (state.viewMode === 'grid' && assetsGridView) {
+      assetsGridView.innerHTML = filtered.map(item => {
+        const activeUrl = item.customPath ? `${BASE_URL}/${item.customPath}` : `${BASE_URL}/${item.randomSlug}`;
+        const displayPath = item.customPath ? `/${item.customPath}` : `/${item.randomSlug}`;
+        return `
+          <div class="asset-grid-card" data-id="${item.id}">
+            <div class="grid-card-media" onclick="openPreviewModal('${item.id}')">
+              ${getAssetThumbnail(item)}
+              <div class="grid-card-badges">
+                <span class="grid-cat-pill">${escapeHtml(item.category || 'Lainnya')}</span>
+                ${getQualityBadgeHtml(item)}
+              </div>
+            </div>
+            <div class="grid-card-body">
+              <div class="grid-card-title" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</div>
+              <div class="grid-card-sub">
+                <span title="${escapeHtml(displayPath)}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:110px;">${escapeHtml(displayPath)}</span>
+                <span>${getActiveSizeLabel(item)}</span>
+              </div>
+              <div class="grid-card-actions">
+                <button class="btn-icon-only" onclick="copyText('${activeUrl}')" title="Salin URL">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                </button>
+                ${isCompressibleImage(item) ? `
+                  <button class="btn-icon-only" onclick="openCompressModal('${item.id}')" title="Atur Kualitas & Kompres">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="14" y1="10" x2="21" y2="3"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+                  </button>
+                ` : ''}
+                <button class="btn-icon-only" onclick="openEditModal('${item.id}')" title="Edit">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                </button>
+                <button class="btn-icon-only btn-delete" onclick="deleteAsset('${item.id}', '${escapeHtml(item.name)}')" title="Hapus">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+      return;
+    }
+
+    // Default: Table View
     assetsTableBody.innerHTML = filtered.map(item => {
       const randomUrl = `${BASE_URL}/${item.randomSlug}`;
       const customUrl = item.customPath ? `${BASE_URL}/${item.customPath}` : '';
@@ -330,14 +490,26 @@ document.addEventListener('DOMContentLoaded', () => {
               </div>
             ` : '<span style="color: var(--text-dim); font-size: 11px;">—</span>'}
           </td>
-          <td style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); white-space: nowrap;">
-            ${item.sizeFormatted || formatBytes(item.sizeBytes || 0)}
+          <td>
+            <div class="quality-cell">
+              <div class="quality-inline-row">
+                <span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); white-space: nowrap;">
+                  ${getActiveSizeLabel(item)}
+                </span>
+                ${getQualityBadgeHtml(item)}
+              </div>
+            </div>
           </td>
           <td class="text-right">
             <div class="cell-actions-row">
               <button class="btn-icon-only" onclick="openPreviewModal('${item.id}')" title="Preview Aset">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
               </button>
+              ${isCompressibleImage(item) ? `
+                <button class="btn-icon-only" onclick="openCompressModal('${item.id}')" title="Kualitas &amp; Kompresi">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="14" y1="10" x2="21" y2="3"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+                </button>
+              ` : ''}
               <button class="btn-icon-only" onclick="openEditModal('${item.id}')" title="Edit Metadata">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
               </button>
@@ -366,6 +538,18 @@ document.addEventListener('DOMContentLoaded', () => {
       return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>`;
     }
     return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>`;
+  }
+
+  // View Mode Switcher
+  if (viewModeSwitcher) {
+    viewModeSwitcher.addEventListener('click', (e) => {
+      const btn = e.target.closest('.btn-view-mode');
+      if (!btn) return;
+      const mode = btn.getAttribute('data-view') || 'table';
+      state.viewMode = mode;
+      localStorage.setItem('cdn_view_mode', mode);
+      renderDashboard();
+    });
   }
 
   // Filter Category Pills
@@ -406,6 +590,7 @@ document.addEventListener('DOMContentLoaded', () => {
     formUploadAsset.reset();
     state.selectedFile = null;
     dropzoneLabel.textContent = 'Pilih file atau seret file ke sini';
+    if (uploadCompressBox) uploadCompressBox.style.display = 'none';
     setUploadMode('file');
     inputRandomSlug.value = generateRandomSlug();
     modalUpload.style.display = 'flex';
@@ -423,6 +608,7 @@ document.addEventListener('DOMContentLoaded', () => {
       tabModeCode.classList.add('active');
       sectionFileInput.style.display = 'none';
       sectionCodeInput.style.display = 'block';
+      if (uploadCompressBox) uploadCompressBox.style.display = 'none';
       selectAssetCategory.value = 'Script';
     }
   }
@@ -476,7 +662,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Auto-detect kategori
     const type = file.type || '';
     const ext = file.name.split('.').pop().toLowerCase();
-    if (type.startsWith('image/') || ['svg', 'png', 'jpg', 'webp', 'ico'].includes(ext)) {
+    const isRasterImage = (type.startsWith('image/') && !type.includes('svg') && !type.includes('gif')) ||
+      ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'avif'].includes(ext);
+
+    if (uploadCompressBox) {
+      uploadCompressBox.style.display = isRasterImage ? 'block' : 'none';
+    }
+
+    if (type.startsWith('image/') || ['svg', 'png', 'jpg', 'jpeg', 'webp', 'ico'].includes(ext)) {
       selectAssetCategory.value = 'Gambar';
     } else if (type.startsWith('video/') || ['mp4', 'webm'].includes(ext)) {
       selectAssetCategory.value = 'Video';
@@ -528,11 +721,34 @@ document.addEventListener('DOMContentLoaded', () => {
           if (customPath) formData.append('customPath', customPath);
           formData.append('file', state.selectedFile);
 
+          if (uploadCompressBox && uploadCompressBox.style.display !== 'none' && uploadAutoCompress && uploadAutoCompress.checked) {
+            try {
+              btnSubmitUpload.querySelector('.btn-label').textContent = 'Mengompres & Mengunggah...';
+              const comp = await compressImageSource(state.selectedFile, {
+                format: 'webp',
+                quality: 0.8,
+                maxWidth: 1920
+              });
+              if (comp && comp.blob) {
+                formData.append('compressedFile', comp.blob, `${randomSlug}.webp`);
+                formData.append('compressedQuality', '0.8');
+                formData.append('compressedMaxWidth', '1920');
+                formData.append('compressedFormat', 'webp');
+                formData.append('activateCompressed', 'true');
+              }
+            } catch (compErr) {
+              console.warn('Auto-compress dilewati:', compErr);
+            }
+          }
+
+          const uploadHeaders = {};
+          if (state.token) {
+            uploadHeaders['Authorization'] = `Bearer ${state.token}`;
+          }
+
           res = await fetch('/api/assets', {
             method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${state.token}`
-            },
+            headers: uploadHeaders,
             body: formData
           });
         } else {
@@ -734,6 +950,277 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnClosePreviewModal) btnClosePreviewModal.addEventListener('click', () => modalPreview.style.display = 'none');
 
   /* =========================================================================
+     7B. Compression & Quality Manager Modal
+     ========================================================================= */
+
+  let compressState = {
+    asset: null,
+    loadedImage: null,
+    generatedBlob: null,
+    previewUrl: null
+  };
+
+  function compressImageFromLoadedImg(img, { format = 'webp', quality = 0.8, maxWidth = 1920 }) {
+    return new Promise((resolve, reject) => {
+      try {
+        const origWidth = img.naturalWidth || img.width;
+        const origHeight = img.naturalHeight || img.height;
+        let targetWidth = origWidth;
+        let targetHeight = origHeight;
+
+        if (maxWidth > 0 && origWidth > maxWidth) {
+          targetWidth = maxWidth;
+          targetHeight = Math.round((origHeight * maxWidth) / origWidth);
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+        const mimeType = format === 'jpeg' ? 'image/jpeg' : 'image/webp';
+        canvas.toBlob((blob) => {
+          if (!blob) return reject(new Error('Gagal menghasilkan blob gambar.'));
+          resolve({ blob, width: targetWidth, height: targetHeight, origWidth, origHeight, mimeType });
+        }, mimeType, quality);
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  function compressImageSource(source, options = {}) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      let objectUrl = null;
+
+      img.onload = async () => {
+        try {
+          const result = await compressImageFromLoadedImg(img, options);
+          if (objectUrl) URL.revokeObjectURL(objectUrl);
+          resolve(result);
+        } catch (e) {
+          if (objectUrl) URL.revokeObjectURL(objectUrl);
+          reject(e);
+        }
+      };
+      img.onerror = () => {
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
+        reject(new Error('Gagal memuat gambar sumber untuk dikompres.'));
+      };
+
+      if (typeof source === 'string') {
+        img.src = source;
+      } else {
+        objectUrl = URL.createObjectURL(source);
+        img.src = objectUrl;
+      }
+    });
+  }
+
+  function renderCompressModalStatus(item) {
+    const isCompActive = item.activeQuality === 'compressed' && Boolean(item.compressed);
+    if (btnActivateOriginal) btnActivateOriginal.classList.toggle('active', !isCompActive);
+    if (btnActivateCompressed) {
+      btnActivateCompressed.classList.toggle('active', isCompActive);
+      btnActivateCompressed.disabled = !item.compressed;
+    }
+    if (pillOriginalActive) pillOriginalActive.style.display = !isCompActive ? 'inline-block' : 'none';
+    if (pillCompressedActive) pillCompressedActive.style.display = isCompActive ? 'inline-block' : 'none';
+
+    if (compressOriginalSize) compressOriginalSize.textContent = item.sizeFormatted || formatBytes(item.sizeBytes || 0);
+    if (compressOriginalMime) compressOriginalMime.textContent = item.mimeType || 'File asli';
+
+    if (item.compressed) {
+      if (compressSavedSize) compressSavedSize.textContent = item.compressed.sizeFormatted || formatBytes(item.compressed.sizeBytes || 0);
+      const pct = item.sizeBytes > 0
+        ? Math.round((1 - (item.compressed.sizeBytes / item.sizeBytes)) * 100)
+        : 0;
+      if (compressSavedMeta) {
+        compressSavedMeta.textContent = `${(item.compressed.format || 'webp').toUpperCase()} • ${Math.round((item.compressed.quality || 0.8) * 100)}% • Hemat ${pct}%`;
+      }
+      if (btnDeleteCompressed) btnDeleteCompressed.style.display = 'inline-flex';
+    } else {
+      if (compressSavedSize) compressSavedSize.textContent = 'Belum dibuat';
+      if (compressSavedMeta) compressSavedMeta.textContent = 'Buat versi ringan di bawah';
+      if (btnDeleteCompressed) btnDeleteCompressed.style.display = 'none';
+    }
+  }
+
+  async function updateCompressPreview() {
+    if (!compressState.loadedImage || !compressState.asset) return;
+    const format = compressFormat ? compressFormat.value : 'webp';
+    const maxWidth = compressMaxWidth ? parseInt(compressMaxWidth.value, 10) : 1920;
+    const qualityPct = compressQuality ? parseInt(compressQuality.value, 10) : 80;
+    if (compressQualityValue) compressQualityValue.textContent = `${qualityPct}%`;
+
+    try {
+      const result = await compressImageFromLoadedImg(compressState.loadedImage, {
+        format,
+        quality: qualityPct / 100,
+        maxWidth
+      });
+      compressState.generatedBlob = result.blob;
+      if (compressState.previewUrl) URL.revokeObjectURL(compressState.previewUrl);
+      compressState.previewUrl = URL.createObjectURL(result.blob);
+
+      if (compressPreviewImg) compressPreviewImg.src = compressState.previewUrl;
+      if (compressEstSize) compressEstSize.textContent = formatBytes(result.blob.size);
+      if (compressEstDim) compressEstDim.textContent = `${result.width} x ${result.height} px (Asli: ${result.origWidth} x ${result.origHeight} px)`;
+
+      const origBytes = compressState.asset.sizeBytes || 0;
+      if (compressSavingsBadge && origBytes > 0) {
+        const pct = Math.round((1 - (result.blob.size / origBytes)) * 100);
+        compressSavingsBadge.textContent = pct >= 0 ? `Hemat ${pct}%` : `+${Math.abs(pct)}%`;
+        compressSavingsBadge.style.display = 'inline-block';
+      }
+    } catch (err) {
+      if (compressEstSize) compressEstSize.textContent = 'Gagal memproses: ' + err.message;
+    }
+  }
+
+  window.openCompressModal = function(id) {
+    const item = state.assets.find(a => a.id === id);
+    if (!item || !modalCompress) return;
+
+    compressState.asset = item;
+    compressState.loadedImage = null;
+    compressState.generatedBlob = null;
+
+    if (compressAssetId) compressAssetId.value = item.id;
+    if (compressModalTitle) compressModalTitle.textContent = `Kualitas & Kompresi: ${item.name}`;
+    if (compressModalPath) compressModalPath.textContent = `Path: cdn.ten.my.id/${item.customPath || item.randomSlug}`;
+
+    renderCompressModalStatus(item);
+
+    if (compressEstSize) compressEstSize.textContent = 'Memuat gambar asli...';
+    if (compressEstDim) compressEstDim.textContent = '—';
+    if (compressSavingsBadge) compressSavingsBadge.style.display = 'none';
+    if (compressPreviewImg) compressPreviewImg.src = `/${item.randomSlug}?quality=original&t=${Date.now()}`;
+
+    modalCompress.style.display = 'flex';
+
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      compressState.loadedImage = img;
+      updateCompressPreview();
+    };
+    img.onerror = () => {
+      if (compressEstSize) compressEstSize.textContent = 'Gagal memuat gambar original.';
+    };
+    img.src = `/${item.randomSlug}?quality=original&t=${Date.now()}`;
+  };
+
+  if (btnCloseCompressModal) btnCloseCompressModal.addEventListener('click', () => modalCompress.style.display = 'none');
+  if (btnCancelCompress) btnCancelCompress.addEventListener('click', () => modalCompress.style.display = 'none');
+
+  if (compressFormat) compressFormat.addEventListener('change', updateCompressPreview);
+  if (compressMaxWidth) compressMaxWidth.addEventListener('change', updateCompressPreview);
+  if (compressQuality) compressQuality.addEventListener('input', updateCompressPreview);
+
+  async function switchAssetQuality(quality) {
+    const item = compressState.asset;
+    if (!item) return;
+    try {
+      const res = await apiRequest(`/api/assets/${encodeURIComponent(item.id)}/quality`, 'PUT', { activeQuality: quality });
+      if (res && res.success && res.data) {
+        const idx = state.assets.findIndex(a => a.id === item.id);
+        if (idx !== -1) state.assets[idx] = res.data;
+        compressState.asset = res.data;
+        renderCompressModalStatus(res.data);
+        renderDashboard();
+        showToast(res.message || 'Kualitas aktif diperbarui!');
+      } else {
+        alert((res && res.error) || 'Gagal mengubah kualitas aktif.');
+      }
+    } catch (err) {
+      alert('Terjadi kesalahan: ' + err.message);
+    }
+  }
+
+  if (btnActivateOriginal) btnActivateOriginal.addEventListener('click', () => switchAssetQuality('original'));
+  if (btnActivateCompressed) btnActivateCompressed.addEventListener('click', () => switchAssetQuality('compressed'));
+
+  if (btnSaveCompressed) {
+    btnSaveCompressed.addEventListener('click', async () => {
+      const item = compressState.asset;
+      if (!item || !compressState.generatedBlob) {
+        alert('Gambar belum siap dikompres.');
+        return;
+      }
+
+      btnSaveCompressed.disabled = true;
+      btnSaveCompressed.querySelector('.btn-label').textContent = 'Menyimpan...';
+
+      try {
+        const format = compressFormat ? compressFormat.value : 'webp';
+        const maxWidth = compressMaxWidth ? compressMaxWidth.value : '1920';
+        const qualityVal = compressQuality ? (parseInt(compressQuality.value, 10) / 100).toString() : '0.8';
+        const activate = compressActivateNow && compressActivateNow.checked ? 'true' : 'false';
+
+        const formData = new FormData();
+        formData.append('file', compressState.generatedBlob, `${item.randomSlug}.${format}`);
+        formData.append('format', format);
+        formData.append('maxWidth', maxWidth);
+        formData.append('quality', qualityVal);
+        formData.append('activate', activate);
+
+        const headers = {};
+        if (state.token) headers['Authorization'] = `Bearer ${state.token}`;
+
+        const res = await fetch(`/api/assets/${encodeURIComponent(item.id)}/compress`, {
+          method: 'POST',
+          headers,
+          body: formData
+        });
+        const data = await res.json();
+        if (res.ok && data.success && data.data) {
+          const idx = state.assets.findIndex(a => a.id === item.id);
+          if (idx !== -1) state.assets[idx] = data.data;
+          compressState.asset = data.data;
+          renderCompressModalStatus(data.data);
+          renderDashboard();
+          showToast(data.message || 'Versi kompres berhasil disimpan!');
+        } else {
+          alert(data.error || 'Gagal menyimpan versi kompres.');
+        }
+      } catch (err) {
+        alert('Terjadi kesalahan: ' + err.message);
+      } finally {
+        btnSaveCompressed.disabled = false;
+        btnSaveCompressed.querySelector('.btn-label').textContent = 'Simpan Versi Kompres';
+      }
+    });
+  }
+
+  if (btnDeleteCompressed) {
+    btnDeleteCompressed.addEventListener('click', async () => {
+      const item = compressState.asset;
+      if (!item) return;
+      if (!confirm('Hapus versi kompres dan kembali ke file Original?')) return;
+
+      try {
+        const res = await apiRequest(`/api/assets/${encodeURIComponent(item.id)}/compress`, 'DELETE');
+        if (res && res.success && res.data) {
+          const idx = state.assets.findIndex(a => a.id === item.id);
+          if (idx !== -1) state.assets[idx] = res.data;
+          compressState.asset = res.data;
+          renderCompressModalStatus(res.data);
+          renderDashboard();
+          showToast('Versi kompres dihapus.');
+        } else {
+          alert((res && res.error) || 'Gagal menghapus versi kompres.');
+        }
+      } catch (err) {
+        alert('Terjadi kesalahan: ' + err.message);
+      }
+    });
+  }
+
+  /* =========================================================================
      8. Utility Functions & Copy
      ========================================================================= */
 
@@ -811,6 +1298,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (modalUpload) modalUpload.style.display = 'none';
     if (modalEdit) modalEdit.style.display = 'none';
     if (modalPreview) modalPreview.style.display = 'none';
+    if (modalCompress) modalCompress.style.display = 'none';
   }
 
   async function apiRequest(endpoint, method = 'GET', body = null) {

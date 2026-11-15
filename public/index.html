@@ -1221,21 +1221,35 @@ textarea {
             <button class="cat-pill" data-category="Dokumen">Dokumen</button>
             <button class="cat-pill" data-category="Lainnya">Lainnya</button>
           </div>
+          <div class="view-switcher" id="view-mode-switcher" title="Mode Tampilan">
+            <button type="button" class="btn-view-mode active" data-view="table" title="Tampilan Tabel">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+              <span>Tabel</span>
+            </button>
+            <button type="button" class="btn-view-mode" data-view="compact" title="Tampilan Ringkas (Muat Banyak)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+              <span>Ringkas</span>
+            </button>
+            <button type="button" class="btn-view-mode" data-view="grid" title="Tampilan Grid / Galeri">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+              <span>Grid</span>
+            </button>
+          </div>
         </div>
 
         <!-- Asset List Container -->
         <div class="asset-list-card">
           <!-- List Table -->
-          <div class="table-wrap">
+          <div class="table-wrap" id="assets-table-wrap">
             <table class="asset-table">
               <thead>
                 <tr>
                   <th style="width: 26%;">Aset</th>
-                  <th style="width: 12%;">Kategori</th>
-                  <th style="width: 24%;">URL Acak</th>
-                  <th style="width: 20%;">Custom Path</th>
-                  <th style="width: 8%;">Ukuran</th>
-                  <th style="width: 10%;" class="text-right">Aksi</th>
+                  <th style="width: 11%;">Kategori</th>
+                  <th style="width: 22%;">URL Acak</th>
+                  <th style="width: 18%;">Custom Path</th>
+                  <th style="width: 12%;">Ukuran / Kualitas</th>
+                  <th style="width: 11%;" class="text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody id="assets-table-body">
@@ -1243,6 +1257,12 @@ textarea {
               </tbody>
             </table>
           </div>
+
+          <!-- Compact List View -->
+          <div id="assets-compact-list" class="assets-compact-list" style="display: none;"></div>
+
+          <!-- Grid / Gallery View -->
+          <div id="assets-grid-view" class="assets-grid-view" style="display: none;"></div>
 
           <!-- Empty State -->
           <div id="assets-empty-state" class="empty-box" style="display: none;">
@@ -1368,6 +1388,14 @@ textarea {
                 >
               </div>
             </div>
+          </div>
+
+          <div id="upload-compress-box" class="compress-upload-option" style="display: none;">
+            <label class="checkbox-label">
+              <input type="checkbox" id="upload-auto-compress" checked>
+              <span>Buat &amp; aktifkan juga <strong>versi kompres WebP (80%)</strong> di path yang sama</span>
+            </label>
+            <p class="compress-hint">File original tetap tersimpan aman dan bisa ditukar kualitasnya kapan saja.</p>
           </div>
 
           <div class="modal-foot">
@@ -1507,6 +1535,112 @@ textarea {
                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
               </svg>
               <span>Salin Kode</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       6. MODAL: KELOLA KUALITAS & KOMPRESI ASET
+       ========================================================================= -->
+  <div id="modal-compress" class="modal-overlay" style="display: none;">
+    <div class="modal-box modal-lg">
+      <div class="modal-head">
+        <div>
+          <h2 class="modal-title" id="compress-modal-title">Kualitas &amp; Kompresi Aset</h2>
+          <p class="compress-modal-sub" id="compress-modal-path"></p>
+        </div>
+        <button type="button" class="btn-close" id="btn-close-compress-modal">&times;</button>
+      </div>
+
+      <div class="modal-content">
+        <input type="hidden" id="compress-asset-id">
+
+        <!-- Status Kualitas Aktif -->
+        <div class="quality-panel">
+          <div class="quality-panel-label">Versi yang Aktif Disajikan di Path Utama:</div>
+          <div class="quality-toggle-cards">
+            <button type="button" class="quality-card" id="btn-activate-original" data-quality="original">
+              <div class="quality-card-head">
+                <span class="quality-card-title">Original</span>
+                <span class="quality-active-pill" id="pill-original-active">Aktif</span>
+              </div>
+              <div class="quality-card-size" id="compress-original-size">—</div>
+              <div class="quality-card-meta" id="compress-original-mime">File asli</div>
+            </button>
+
+            <button type="button" class="quality-card" id="btn-activate-compressed" data-quality="compressed" disabled>
+              <div class="quality-card-head">
+                <span class="quality-card-title">Versi Kompres</span>
+                <span class="quality-active-pill" id="pill-compressed-active" style="display: none;">Aktif</span>
+              </div>
+              <div class="quality-card-size" id="compress-saved-size">Belum dibuat</div>
+              <div class="quality-card-meta" id="compress-saved-meta">Buat versi ringan di bawah</div>
+            </button>
+          </div>
+        </div>
+
+        <!-- Generator Kompresi -->
+        <div class="compress-generator-box">
+          <div class="compress-gen-header">
+            <h3>Buat / Perbarui Versi Kompres</h3>
+            <span class="compress-savings-badge" id="compress-savings-badge" style="display: none;">Hemat 0%</span>
+          </div>
+
+          <div class="form-row-2">
+            <div class="form-group">
+              <label for="compress-format">Format Output</label>
+              <select id="compress-format">
+                <option value="webp">WebP (Direkomendasikan)</option>
+                <option value="jpeg">JPEG</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="compress-max-width">Lebar Maksimal (Resize)</label>
+              <select id="compress-max-width">
+                <option value="0">Asli (Tanpa Resize)</option>
+                <option value="1920" selected>1920 px (Full HD)</option>
+                <option value="1280">1280 px (HD Web)</option>
+                <option value="800">800 px (Ringan)</option>
+                <option value="480">480 px (Thumbnail)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label for="compress-quality" style="margin: 0;">Kualitas Kompresi</label>
+              <span id="compress-quality-value" class="mono-pill">80%</span>
+            </div>
+            <input type="range" id="compress-quality" min="30" max="95" step="5" value="80" class="range-slider">
+          </div>
+
+          <div class="compress-preview-strip">
+            <div class="compress-preview-thumb">
+              <img id="compress-preview-img" src="" alt="Preview hasil kompres">
+            </div>
+            <div class="compress-preview-stats">
+              <div>Estimasi ukuran baru: <strong id="compress-est-size">Menghitung...</strong></div>
+              <div class="compress-preview-dim" id="compress-est-dim">—</div>
+            </div>
+          </div>
+
+          <label class="checkbox-label" style="margin-top: 10px;">
+            <input type="checkbox" id="compress-activate-now" checked>
+            <span>Langsung aktifkan versi kompres setelah disimpan</span>
+          </label>
+        </div>
+
+        <div class="modal-foot" style="justify-content: space-between;">
+          <button type="button" class="btn btn-danger-ghost btn-sm" id="btn-delete-compressed" style="display: none;">
+            Hapus Versi Kompres
+          </button>
+          <div style="display: flex; gap: 8px; margin-left: auto;">
+            <button type="button" class="btn btn-secondary" id="btn-cancel-compress">Tutup</button>
+            <button type="button" class="btn btn-primary" id="btn-save-compressed">
+              <span class="btn-label">Simpan Versi Kompres</span>
             </button>
           </div>
         </div>

@@ -114,15 +114,34 @@ export default {
       if (!session) {
         return jsonResponse({ success: false, error: 'Akses tidak sah. Silakan login terlebih dahulu.' }, 401);
       }
-      const assetId = decodeURIComponent(pathname.replace('/api/assets/', '').trim());
-      if (request.method === 'GET') {
-        return handleGetAssetDetail(assetId, env);
+      const subPath = pathname.replace('/api/assets/', '').trim();
+      const parts = subPath.split('/');
+      const assetId = decodeURIComponent(parts[0] || '');
+      const action = parts[1] || '';
+
+      if (action === 'compress') {
+        if (request.method === 'POST' || request.method === 'PUT') {
+          return handleUploadCompressedVariant(assetId, request, env);
+        }
+        if (request.method === 'DELETE') {
+          return handleDeleteCompressedVariant(assetId, request, env);
+        }
       }
-      if (request.method === 'PUT') {
-        return handleUpdateAsset(assetId, request, env);
+
+      if (action === 'quality' && request.method === 'PUT') {
+        return handleSwitchAssetQuality(assetId, request, env);
       }
-      if (request.method === 'DELETE') {
-        return handleDeleteAsset(assetId, env);
+
+      if (!action) {
+        if (request.method === 'GET') {
+          return handleGetAssetDetail(assetId, env);
+        }
+        if (request.method === 'PUT') {
+          return handleUpdateAsset(assetId, request, env);
+        }
+        if (request.method === 'DELETE') {
+          return handleDeleteAsset(assetId, request, env);
+        }
       }
     }
 
@@ -327,6 +346,9 @@ async function handleUploadAsset(request, env) {
     const contentType = request.headers.get('content-type') || '';
     let payload = {};
     let fileBuffer = null;
+    let compressedBuffer = null;
+    let compressedMeta = null;
+    let activateCompressed = false;
 
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
@@ -346,6 +368,24 @@ async function handleUploadAsset(request, env) {
         fileBuffer = new TextEncoder().encode(textContent).buffer;
         payload.sizeBytes = fileBuffer.byteLength;
         payload.mimeType = formData.get('mimeType') || 'text/plain; charset=utf-8';
+      }
+
+      const compFile = formData.get('compressedFile');
+      if (compFile && typeof compFile === 'object' && typeof compFile.arrayBuffer === 'function') {
+        compressedBuffer = await compFile.arrayBuffer();
+        const compQuality = parseFloat(formData.get('compressedQuality') || '0.8');
+        const compMaxWidth = parseInt(formData.get('compressedMaxWidth') || '1920', 10);
+        const compFormat = (formData.get('compressedFormat') || 'webp').trim();
+        activateCompressed = formData.get('activateCompressed') === 'true';
+        compressedMeta = {
+          mimeType: compFile.type || `image/${compFormat}`,
+          sizeBytes: compressedBuffer.byteLength,
+          sizeFormatted: formatBytes(compressedBuffer.byteLength),
+          quality: isNaN(compQuality) ? 0.8 : compQuality,
+          maxWidth: isNaN(compMaxWidth) ? 1920 : compMaxWidth,
+          format: compFormat,
+          updatedAt: new Date().toISOString()
+        };
       }
     } else if (contentType.includes('application/json')) {
       payload = await request.json();
@@ -400,12 +440,17 @@ async function handleUploadAsset(request, env) {
       mimeType: payload.mimeType || getMimeTypeByExt(ext),
       sizeBytes: payload.sizeBytes || 0,
       sizeFormatted: formatBytes(payload.sizeBytes || 0),
+      activeQuality: (compressedBuffer && activateCompressed) ? 'compressed' : 'original',
+      compressed: compressedMeta || null,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
 
     // Simpan file content dan metadata ke KV
     await kvStore.put(env, `asset:file:${assetId}`, fileBuffer);
+    if (compressedBuffer) {
+      await kvStore.put(env, `asset:file:${assetId}:compressed`, compressedBuffer);
+    }
     await kvStore.put(env, `asset:meta:${assetId}`, JSON.stringify(metadata));
 
     // Simpan routing index
@@ -452,12 +497,17 @@ async function handleUpdateAsset(assetId, request, env) {
       }
     }
 
+    const oldCustomPath = meta.customPath;
     meta.name = newName;
     meta.category = newCategory;
     meta.customPath = newCustomPath;
+    if (body.activeQuality === 'original' || (body.activeQuality === 'compressed' && meta.compressed)) {
+      meta.activeQuality = body.activeQuality;
+    }
     meta.updatedAt = new Date().toISOString();
 
     await kvStore.put(env, `asset:meta:${assetId}`, JSON.stringify(meta));
+    await purgeAssetCache(request, meta, oldCustomPath);
 
     return jsonResponse({
       success: true,
@@ -467,6 +517,137 @@ async function handleUpdateAsset(assetId, request, env) {
   } catch (err) {
     return jsonResponse({ success: false, error: 'Gagal memperbarui aset: ' + err.message }, 500);
   }
+}
+
+async function handleUploadCompressedVariant(assetId, request, env) {
+  try {
+    const metaJson = await kvStore.get(env, `asset:meta:${assetId}`);
+    if (!metaJson) return jsonResponse({ success: false, error: 'Aset tidak ditemukan.' }, 404);
+
+    const meta = typeof metaJson === 'string' ? JSON.parse(metaJson) : metaJson;
+    const contentType = request.headers.get('content-type') || '';
+    if (!contentType.includes('multipart/form-data')) {
+      return jsonResponse({ success: false, error: 'Gunakan multipart/form-data untuk mengunggah versi kompres.' }, 400);
+    }
+
+    const formData = await request.formData();
+    const file = formData.get('file');
+    if (!file || typeof file !== 'object' || typeof file.arrayBuffer !== 'function') {
+      return jsonResponse({ success: false, error: 'File hasil kompres tidak ditemukan.' }, 400);
+    }
+
+    const fileBuffer = await file.arrayBuffer();
+    const quality = parseFloat(formData.get('quality') || '0.8');
+    const maxWidth = parseInt(formData.get('maxWidth') || '1920', 10);
+    const format = (formData.get('format') || 'webp').trim();
+    const activate = formData.get('activate') !== 'false';
+
+    await kvStore.put(env, `asset:file:${assetId}:compressed`, fileBuffer);
+
+    meta.compressed = {
+      mimeType: file.type || `image/${format}`,
+      sizeBytes: fileBuffer.byteLength,
+      sizeFormatted: formatBytes(fileBuffer.byteLength),
+      quality: isNaN(quality) ? 0.8 : quality,
+      maxWidth: isNaN(maxWidth) ? 1920 : maxWidth,
+      format,
+      updatedAt: new Date().toISOString()
+    };
+
+    if (activate) {
+      meta.activeQuality = 'compressed';
+    }
+    meta.updatedAt = new Date().toISOString();
+
+    await kvStore.put(env, `asset:meta:${assetId}`, JSON.stringify(meta));
+    await purgeAssetCache(request, meta);
+
+    return jsonResponse({
+      success: true,
+      message: activate ? 'Versi kompres berhasil disimpan dan diaktifkan!' : 'Versi kompres berhasil disimpan.',
+      data: meta
+    });
+  } catch (err) {
+    return jsonResponse({ success: false, error: 'Gagal menyimpan versi kompres: ' + err.message }, 500);
+  }
+}
+
+async function handleSwitchAssetQuality(assetId, request, env) {
+  try {
+    const metaJson = await kvStore.get(env, `asset:meta:${assetId}`);
+    if (!metaJson) return jsonResponse({ success: false, error: 'Aset tidak ditemukan.' }, 404);
+
+    const meta = typeof metaJson === 'string' ? JSON.parse(metaJson) : metaJson;
+    const body = await request.json();
+    const activeQuality = body.activeQuality === 'compressed' ? 'compressed' : 'original';
+
+    if (activeQuality === 'compressed' && !meta.compressed) {
+      return jsonResponse({ success: false, error: 'Versi kompres belum dibuat untuk aset ini.' }, 400);
+    }
+
+    meta.activeQuality = activeQuality;
+    meta.updatedAt = new Date().toISOString();
+
+    await kvStore.put(env, `asset:meta:${assetId}`, JSON.stringify(meta));
+    await purgeAssetCache(request, meta);
+
+    return jsonResponse({
+      success: true,
+      message: `Kualitas aktif diubah ke ${activeQuality === 'compressed' ? 'Versi Kompres' : 'Original'}.`,
+      data: meta
+    });
+  } catch (err) {
+    return jsonResponse({ success: false, error: 'Gagal mengubah kualitas aktif: ' + err.message }, 500);
+  }
+}
+
+async function handleDeleteCompressedVariant(assetId, request, env) {
+  try {
+    const metaJson = await kvStore.get(env, `asset:meta:${assetId}`);
+    if (!metaJson) return jsonResponse({ success: false, error: 'Aset tidak ditemukan.' }, 404);
+
+    const meta = typeof metaJson === 'string' ? JSON.parse(metaJson) : metaJson;
+    await kvStore.delete(env, `asset:file:${assetId}:compressed`);
+    meta.compressed = null;
+    meta.activeQuality = 'original';
+    meta.updatedAt = new Date().toISOString();
+
+    await kvStore.put(env, `asset:meta:${assetId}`, JSON.stringify(meta));
+    await purgeAssetCache(request, meta);
+
+    return jsonResponse({
+      success: true,
+      message: 'Versi kompres berhasil dihapus, kembali ke kualitas Original.',
+      data: meta
+    });
+  } catch (err) {
+    return jsonResponse({ success: false, error: 'Gagal menghapus versi kompres: ' + err.message }, 500);
+  }
+}
+
+async function purgeAssetCache(request, meta, extraPath = '') {
+  try {
+    if (typeof caches === 'undefined' || !caches.default) return;
+    const paths = [];
+    if (meta?.randomSlug) {
+      paths.push(`/${meta.randomSlug}`);
+      if (meta.extension) {
+        paths.push(`/${meta.randomSlug}.${meta.extension}`);
+      }
+    }
+    if (meta?.customPath) {
+      paths.push(`/${meta.customPath}`);
+    }
+    if (extraPath && extraPath !== meta?.customPath) {
+      paths.push(`/${extraPath}`);
+    }
+    await Promise.all(
+      paths.map(p => {
+        const targetUrl = new URL(p, request.url).toString();
+        return caches.default.delete(new Request(targetUrl)).catch(() => {});
+      })
+    );
+  } catch {}
 }
 
 async function handleDeleteAsset(assetId, env) {
@@ -486,6 +667,7 @@ async function handleDeleteAsset(assetId, env) {
     }
 
     await kvStore.delete(env, `asset:file:${assetId}`);
+    await kvStore.delete(env, `asset:file:${assetId}:compressed`);
     await kvStore.delete(env, `asset:meta:${assetId}`);
 
     return jsonResponse({
@@ -503,25 +685,62 @@ async function handleDeleteAsset(assetId, env) {
 
 async function handleServeCdnAsset(cleanPath, request, env) {
   try {
+    const url = new URL(request.url);
+    const queryQuality = url.searchParams.get('quality');
+    const rangeHeader = request.headers.get('Range');
+    const canUseEdgeCache =
+      typeof caches !== 'undefined' &&
+      caches.default &&
+      request.method === 'GET' &&
+      !queryQuality &&
+      !rangeHeader;
+
+    if (canUseEdgeCache) {
+      try {
+        const cached = await caches.default.match(request);
+        if (cached) return cached;
+      } catch {}
+    }
+
     const assetId = await kvStore.get(env, `slug:${cleanPath}`);
     if (!assetId) return null;
 
-    const [metaJson, fileData] = await Promise.all([
-      kvStore.get(env, `asset:meta:${assetId}`),
-      kvStore.get(env, `asset:file:${assetId}`, { type: 'arrayBuffer' })
-    ]);
+    const metaJson = await kvStore.get(env, `asset:meta:${assetId}`);
+    let meta = null;
+    if (metaJson) {
+      try {
+        meta = typeof metaJson === 'string' ? JSON.parse(metaJson) : metaJson;
+      } catch {}
+    }
+
+    const requestedQuality =
+      (queryQuality === 'original' || queryQuality === 'compressed')
+        ? queryQuality
+        : (meta?.activeQuality || 'original');
+    const useCompressed = requestedQuality === 'compressed' && Boolean(meta?.compressed);
+
+    let fileData = await kvStore.get(
+      env,
+      useCompressed ? `asset:file:${assetId}:compressed` : `asset:file:${assetId}`,
+      { type: 'arrayBuffer' }
+    );
+
+    let servedQuality = useCompressed ? 'compressed' : 'original';
+    if (!fileData && useCompressed) {
+      fileData = await kvStore.get(env, `asset:file:${assetId}`, { type: 'arrayBuffer' });
+      servedQuality = 'original';
+    }
 
     if (!fileData) return null;
 
     let mimeType = 'application/octet-stream';
     let filename = cleanPath.split('/').pop() || 'file';
 
-    if (metaJson) {
-      try {
-        const meta = typeof metaJson === 'string' ? JSON.parse(metaJson) : metaJson;
-        mimeType = meta.mimeType || mimeType;
-        filename = meta.fileName || filename;
-      } catch {}
+    if (meta) {
+      mimeType = (servedQuality === 'compressed' && meta.compressed?.mimeType)
+        ? meta.compressed.mimeType
+        : (meta.mimeType || mimeType);
+      filename = meta.fileName || filename;
     }
 
     // Convert string to buffer if stored as text
@@ -537,7 +756,10 @@ async function handleServeCdnAsset(cleanPath, request, env) {
     }
 
     const totalBytes = fileBuffer.byteLength;
-    const etag = `"${assetId}-${totalBytes}"`;
+    const etag = `"${assetId}-${servedQuality}-${totalBytes}"`;
+    const cacheControl = queryQuality
+      ? 'no-store'
+      : 'public, max-age=60, s-maxage=31536000';
 
     const ifNoneMatch = request.headers.get('If-None-Match');
     if (ifNoneMatch && ifNoneMatch === etag) {
@@ -545,14 +767,14 @@ async function handleServeCdnAsset(cleanPath, request, env) {
         status: 304,
         headers: {
           'ETag': etag,
+          'X-CDN-Quality': servedQuality,
           'Access-Control-Allow-Origin': '*',
-          'Cache-Control': 'public, max-age=31536000, immutable'
+          'Cache-Control': cacheControl
         }
       });
     }
 
     // HTTP Range Requests Support
-    const rangeHeader = request.headers.get('Range');
     if (rangeHeader && rangeHeader.startsWith('bytes=')) {
       const parts = rangeHeader.replace('bytes=', '').split('-');
       const start = parseInt(parts[0], 10);
@@ -571,26 +793,36 @@ async function handleServeCdnAsset(cleanPath, request, env) {
             'Content-Range': `bytes ${start}-${chunkEnd}/${totalBytes}`,
             'Content-Length': chunkSize.toString(),
             'Accept-Ranges': 'bytes',
-            'Cache-Control': 'public, max-age=31536000, immutable',
+            'Cache-Control': cacheControl,
             'ETag': etag,
+            'X-CDN-Quality': servedQuality,
             'Content-Disposition': `inline; filename="${encodeURIComponent(filename)}"`
           }
         });
       }
     }
 
-    return new Response(fileBuffer, {
+    const response = new Response(fileBuffer, {
       status: 200,
       headers: {
         ...CORS_HEADERS,
         'Content-Type': mimeType,
         'Content-Length': totalBytes.toString(),
         'Accept-Ranges': 'bytes',
-        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Cache-Control': cacheControl,
         'ETag': etag,
+        'X-CDN-Quality': servedQuality,
         'Content-Disposition': `inline; filename="${encodeURIComponent(filename)}"`
       }
     });
+
+    if (canUseEdgeCache) {
+      try {
+        await caches.default.put(request, response.clone());
+      } catch {}
+    }
+
+    return response;
 
   } catch (err) {
     console.error('Error serving CDN asset:', err);
